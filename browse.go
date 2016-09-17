@@ -2,8 +2,10 @@ package dnssd
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
-	//	"github.com/miekg/dns"
+	"github.com/miekg/dns"
 )
 
 /*
@@ -26,13 +28,19 @@ is a closure called when service data has been updated. errc is called when an e
 func Browse(ctx context.Context, flags Flags, ifIndex int, regType, domain string, response ServiceUpdate, errc ErrCallback) {
 
 	name := fmt.Sprint(regType, ".", domain, ".")
-	question := &dns.Question{name, dns.TypePTR, dns.ClassINET}
-	query(ctx, 0, ifIndex, question,
-		func(flags Flags, ifIndex int, rr dns.RR) {
-			ptr := rr.(*dns.PTR)
-			serviceName, serviceType, domain := reformatServiceName(ptr.Ptr)
-			response(true, 0, ifIndex, serviceName, serviceType, domain)
-		}, errc)
+	Query(ctx, 0, 0, name, dns.TypePTR, dns.ClassINET,
+		func(err error, flags Flags, ifIndex int, rr dns.RR) {
+			if err != nil {
+				response(err, false, 0, 0, "", "", "")
+			} else {
+				ptr := rr.(*dns.PTR)
+				split := strings.SplitN(ptr.Ptr, ".", 4)
+				response(nil, true, 0, 0, split[0], fmt.Sprint(split[1], ".", split[2]), trimTrailingDot(split[3]))
+			}
+		})
 
 }
 
+func trimTrailingDot(s string) string {
+	return strings.TrimRight(s, ".")
+}

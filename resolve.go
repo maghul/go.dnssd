@@ -47,8 +47,6 @@ func Resolve(ctx context.Context, flags Flags, ifIndex int, serviceName, regType
 			txt = t
 		}
 		if src != nil && txt != nil {
-			target := src.Target
-			fmt.Println("target=", target)
 			response(nil, flags, ifIndex, qname, src.Target, src.Port, txt.Txt)
 		}
 	}
@@ -57,7 +55,6 @@ func Resolve(ctx context.Context, flags Flags, ifIndex int, serviceName, regType
 			if err != nil {
 				response(err, 0, 0, "", "", 0, nil)
 			} else {
-				fmt.Println("SRV RR=", rr)
 				conflate(rr.(*dns.SRV), nil)
 			}
 		})

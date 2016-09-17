@@ -14,6 +14,10 @@ type command struct {
 	r interface{}
 }
 
+func (c *command) String() string {
+	return fmt.Sprint("command{", c.q, "}")
+}
+
 var ns *netserver
 
 func getNetserver() *netserver {
@@ -29,31 +33,69 @@ func getNetserver() *netserver {
 	return ns
 }
 
+type rrcache struct {
+	cache []dns.RR
+}
+
+func (rrc *rrcache) add(rr dns.RR) {
+	rrc.cache = append(rrc.cache, rr)
+}
+
+func (rrc *rrcache) matchQuestion(cmd *command) bool {
+	for _, rr := range rrc.cache {
+		for _, q := range cmd.q.Question {
+			//			fmt.Println("matchQuestion: q=", q, ", rr=", rr)
+			if cmd.match(q, rr) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (rrc *rrcache) matchAnswers(cmd *command, sections []dns.RR) {
+	for _, rr := range sections {
+		for _, q := range cmd.q.Question {
+			rrc.add(rr)
+			cmd.match(q, rr)
+		}
+	}
+}
+
+func (cmd *command) match(q dns.Question, answer dns.RR) bool {
+	if q.Qtype == answer.Header().Rrtype {
+		if q.Name == answer.Header().Name {
+			respond(cmd.r, answer)
+			return true
+		}
+	}
+	return false
+}
+
 func (c *netserver) processing() {
 	var cs []*command
+	rrc := &rrcache{}
+
 	for {
 		select {
 		case cmd := <-c.cmdCh:
-			err := c.sendQuery(cmd.q)
-			if err != nil {
-				respondWithError(cmd.r, err)
-			} else {
-				cs = append(cs, cmd)
+			//			fmt.Println("COMMAND: ", cmd)
+
+			if !rrc.matchQuestion(cmd) {
+				fmt.Println("SEND-QUERY-COMMAND: ", cmd)
+				err := c.sendQuery(cmd.q)
+				if err != nil {
+					respondWithError(cmd.r, err)
+				} else {
+					cs = append(cs, cmd)
+				}
 			}
+
 		case msg := <-c.msgCh:
-			fmt.Println("MSG:", msg)
 			sections := append(msg.Answer, msg.Ns...)
 			sections = append(sections, msg.Extra...)
-			for _, c := range cs {
-				for _, answer := range sections {
-					for _, q := range c.q.Question {
-						if q.Qtype == answer.Header().Rrtype {
-							if q.Name == answer.Header().Name {
-								respond(c.r, answer)
-							}
-						}
-					}
-				}
+			for _, cmd := range cs {
+				rrc.matchAnswers(cmd, sections)
 			}
 		}
 	}
