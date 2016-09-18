@@ -32,7 +32,7 @@ func Query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rr
 	m.Question = []dns.Question{
 		dns.Question{serviceName, rrtype, rrclass},
 	}
-	ns.cmdCh <- &command{m, response, errc}
+	ns.cmdCh <- &command{ctx, m, response, errc}
 }
 
 // Instruct the daemon to verify the validity of a resource record that appears to be out of date.

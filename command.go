@@ -1,12 +1,14 @@
 package dnssd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/miekg/dns"
 )
 
 type command struct {
+	ctx  context.Context
 	q    *dns.Msg
 	r    interface{}
 	errc ErrCallback
@@ -14,6 +16,15 @@ type command struct {
 
 func (c *command) String() string {
 	return fmt.Sprint("command{", c.q, "}")
+}
+
+func (cmd *command) isValid() bool {
+	select {
+	case <-cmd.ctx.Done():
+		return false
+	default:
+	}
+	return true
 }
 
 func (cmd *command) match(q dns.Question, answer dns.RR) bool {

@@ -43,11 +43,22 @@ func (c *netserver) processing() {
 			}
 
 		case msg := <-c.msgCh:
-			sections := append(msg.Answer, msg.Ns...)
-			sections = append(sections, msg.Extra...)
-			for _, cmd := range cs {
-				rrc.matchAnswers(cmd, sections)
+			i := 0 // output index
+			for j, cmd := range cs {
+				if cmd.isValid() {
+					rrc.matchAnswers(cmd, msg.Answer)
+					rrc.matchAnswers(cmd, msg.Ns)
+					rrc.matchAnswers(cmd, msg.Extra)
+					if cmd.isValid() {
+						fmt.Println("len=", len(cs), ", i=", i, ", j=", j, " cmd=", cmd)
+						cs[i] = cmd
+						i++
+					}
+				}
 			}
+			fmt.Println("len1=", len(cs), "i=", i)
+			cs = cs[:i]
+			fmt.Println("len2=", len(cs))
 		}
 	}
 }
