@@ -34,36 +34,25 @@ If domain is blank it will be replaced with the local domain
 response is a function that will be called when a service has been resolved. May be called
 several times. errc is an error callback.
 */
-func Resolve(ctx context.Context, flags Flags, ifIndex int, serviceName, regType, domain string, response ServiceResolved) {
+func Resolve(ctx context.Context, flags Flags, ifIndex int, serviceName, regType, domain string, response ServiceResolved, errc ErrCallback) {
 	qname := ConstructFullName(serviceName, regType, domain)
-	var src *dns.SRV
+	var srv *dns.SRV
 	var txt *dns.TXT
 
-	conflate := func(s *dns.SRV, t *dns.TXT) {
-		if src == nil {
-			src = s
+	conflate := func(flags Flags, ifIndex int, rr dns.RR) {
+		switch rr := rr.(type) {
+		case *dns.SRV:
+			srv = rr
+		case *dns.TXT:
+			txt = rr
 		}
-		if txt == nil {
-			txt = t
-		}
-		if src != nil && txt != nil {
-			response(nil, flags, ifIndex, qname, src.Target, src.Port, txt.Txt)
+		if srv != nil && txt != nil {
+			dnssdlog("TXT&SRV --> sending")
+			response(flags, ifIndex, qname, srv.Target, srv.Port, txt.Txt)
+			dnssdlog("TXT&SRV --> sending done")
 		}
 	}
-	Query(ctx, 0, 0, qname, dns.TypeSRV, dns.ClassINET,
-		func(err error, flags Flags, ifIndex int, rr dns.RR) {
-			if err != nil {
-				response(err, 0, 0, "", "", 0, nil)
-			} else {
-				conflate(rr.(*dns.SRV), nil)
-			}
-		})
-	Query(ctx, 0, 0, qname, dns.TypeTXT, dns.ClassINET,
-		func(err error, flags Flags, ifIndex int, rr dns.RR) {
-			if err != nil {
-				response(err, 0, 0, "", "", 0, nil)
-			} else {
-				conflate(nil, rr.(*dns.TXT))
-			}
-		})
+
+	query(ctx, 0, 0, &dns.Question{qname, dns.TypeSRV, dns.ClassINET}, conflate, errc)
+	query(ctx, 0, 0, &dns.Question{qname, dns.TypeTXT, dns.ClassINET}, conflate, errc)
 }

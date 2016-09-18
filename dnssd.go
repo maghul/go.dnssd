@@ -36,7 +36,7 @@ func (c *netserver) processing() {
 				fmt.Println("SEND-QUERY-COMMAND: ", cmd)
 				err := c.sendQuery(cmd.q)
 				if err != nil {
-					respondWithError(cmd.r, err)
+					cmd.errc(err)
 				} else {
 					cs = append(cs, cmd)
 				}

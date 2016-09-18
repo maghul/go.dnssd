@@ -29,15 +29,11 @@ func Browse(ctx context.Context, flags Flags, ifIndex int, regType, domain strin
 
 	name := fmt.Sprint(regType, ".", domain, ".")
 	Query(ctx, 0, 0, name, dns.TypePTR, dns.ClassINET,
-		func(err error, flags Flags, ifIndex int, rr dns.RR) {
-			if err != nil {
-				response(err, false, 0, 0, "", "", "")
-			} else {
-				ptr := rr.(*dns.PTR)
-				split := strings.SplitN(ptr.Ptr, ".", 4)
-				response(nil, true, 0, 0, split[0], fmt.Sprint(split[1], ".", split[2]), trimTrailingDot(split[3]))
-			}
-		})
+		func(flags Flags, ifIndex int, rr dns.RR) {
+			ptr := rr.(*dns.PTR)
+			split := strings.SplitN(ptr.Ptr, ".", 4)
+			response(true, 0, 0, split[0], fmt.Sprint(split[1], ".", split[2]), trimTrailingDot(split[3]))
+		}, errc)
 
 }
 

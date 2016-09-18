@@ -7,8 +7,9 @@ import (
 )
 
 type command struct {
-	q *dns.Msg
-	r interface{}
+	q    *dns.Msg
+	r    interface{}
+	errc ErrCallback
 }
 
 func (c *command) String() string {
@@ -28,16 +29,7 @@ func (cmd *command) match(q dns.Question, answer dns.RR) bool {
 func respond(r interface{}, rr dns.RR) {
 	switch r := r.(type) {
 	case QueryAnswered:
-		r(nil, 0, 0, rr)
-	default:
-		panic(fmt.Sprint("Dont know what", r, " is"))
-	}
-}
-
-func respondWithError(r interface{}, err error) {
-	switch r := r.(type) {
-	case QueryAnswered:
-		r(err, 0, 0, nil)
+		r(0, 0, rr)
 	default:
 		panic(fmt.Sprint("Dont know what", r, " is"))
 	}
