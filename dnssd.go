@@ -4,8 +4,6 @@ also known as Bonjour(TM).
 package dnssd
 
 import (
-	"fmt"
-
 	"github.com/miekg/dns"
 )
 
@@ -32,10 +30,7 @@ func (c *netserver) processing() {
 	for {
 		select {
 		case cmd := <-c.cmdCh:
-			fmt.Println("COMMAND: ", cmd)
-
 			if cmd.rr != nil {
-				fmt.Println("COMMAND:RR: ", cmd)
 				rrl.add(cmd.rr)
 				resp := new(dns.Msg)
 				resp.MsgHdr.Response = true
@@ -45,7 +40,6 @@ func (c *netserver) processing() {
 			} else {
 				if !rrc.matchQuestion(cmd) {
 					// TODO: Don't resend queries!
-					fmt.Println("SEND-QUERY-COMMAND: ", cmd)
 					err := c.sendQuery(cmd.q)
 					if err != nil {
 						cmd.errc(err)
@@ -56,21 +50,18 @@ func (c *netserver) processing() {
 			}
 		case msg := <-c.msgCh:
 			i := 0 // output index
-			for j, cmd := range cs {
+			for _, cmd := range cs {
 				if cmd.isValid() {
 					rrc.matchAnswers(cmd, msg.Answer)
 					rrc.matchAnswers(cmd, msg.Ns)
 					rrc.matchAnswers(cmd, msg.Extra)
 					if cmd.isValid() {
-						fmt.Println("len=", len(cs), ", i=", i, ", j=", j, " cmd=", cmd)
 						cs[i] = cmd
 						i++
 					}
 				}
 			}
-			fmt.Println("len1=", len(cs), "i=", i)
 			cs = cs[:i]
-			fmt.Println("len2=", len(cs))
 		}
 	}
 }
