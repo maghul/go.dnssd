@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func XTestBrowse(t *testing.T) {
+func TestBrowse(t *testing.T) {
 	rrc := make(chan bool)
 	ctx := context.Background()
 	Browse(ctx, 0, 0, "_raop._tcp", "local",
@@ -27,7 +27,7 @@ func XTestBrowse(t *testing.T) {
 	println("done...")
 }
 
-func NoTestBrowseAndResolve(t *testing.T) {
+func TestBrowseAndResolve(t *testing.T) {
 	rrc := make(chan bool)
 	ctx := context.Background()
 	Browse(ctx, 0, 0, "_raop._tcp", "local",
@@ -50,7 +50,7 @@ func NoTestBrowseAndResolve(t *testing.T) {
 	println("done...")
 }
 
-func NoTestBrowseAndResolveAndLookup(t *testing.T) {
+func TestBrowseAndResolveAndLookup(t *testing.T) {
 	prefix := "-------------- "
 	rrc := make(chan bool)
 	ctx := context.Background()
