@@ -11,7 +11,7 @@ type command struct {
 	ctx  context.Context
 	q    *dns.Msg // For queries
 	rr   dns.RR   // For registering records.
-	r    interface{}
+	r    callback // This is a callback.
 	errc ErrCallback
 
 	//	completed bool
@@ -20,7 +20,7 @@ type command struct {
 
 var commandSerial int = 0
 
-func makeCommand(ctx context.Context, q *dns.Msg, rr dns.RR, r interface{}, errc ErrCallback) *command {
+func makeCommand(ctx context.Context, q *dns.Msg, rr dns.RR, r callback, errc ErrCallback) *command {
 	commandSerial++
 	return &command{ctx, q, rr, r, errc, commandSerial}
 }
@@ -45,13 +45,4 @@ func (cmd *command) match(q dns.Question, answer dns.RR) bool {
 		}
 	}
 	return false
-}
-
-func respond(r interface{}, rr dns.RR) {
-	switch r := r.(type) {
-	case QueryAnswered:
-		r(0, 0, rr)
-	default:
-		panic(fmt.Sprint("Dont know what", r, " is"))
-	}
 }

@@ -46,6 +46,8 @@ func (ds *dnssd) processing() {
 			} else {
 				if !rrc.matchQuestion(cmd) {
 					// TODO: Don't resend queries!
+					// 5.2: Continous queries means that we should ask queries
+					//      independent of the commands.
 					err := ds.ns.sendQuery(cmd.q)
 					if err != nil {
 						cmd.errc(err)
