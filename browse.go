@@ -31,10 +31,16 @@ func Browse(ctx context.Context, flags Flags, ifIndex int, regType, domain strin
 	query(ctx, 0, 0, name, dns.TypePTR, dns.ClassINET, true,
 		func(flags Flags, ifIndex int, rr dns.RR) {
 			ptr := rr.(*dns.PTR)
-			split := strings.SplitN(ptr.Ptr, ".", 4)
-			response(true, 0, 0, split[0], fmt.Sprint(split[1], ".", split[2]), trimTrailingDot(split[3]))
+			serviceName, serviceType, domain := reformatServiceName(ptr.Ptr)
+			response(true, 0, 0, serviceName, serviceType, domain)
 		}, errc)
 
+}
+
+func reformatServiceName(ptr string) (serviceName, serviceType, domain string) {
+
+	split := strings.SplitN(ptr, ".", 4)
+	return split[0], fmt.Sprint(split[1], ".", split[2]), trimTrailingDot(split[3])
 }
 
 func trimTrailingDot(s string) string {
