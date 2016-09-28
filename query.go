@@ -18,7 +18,7 @@ type QueryAnswered func(flags Flags, ifIndex int, rr dns.RR)
 
 /* Query an arbitrary record.
  */
-func query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rrtype, rrclass uint16, keep bool, response QueryAnswered, errc ErrCallback) {
+func query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rrtype, rrclass uint16, response QueryAnswered, errc ErrCallback) {
 	ds := getDnssd()
 
 	// send the query
@@ -27,7 +27,6 @@ func query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rr
 		dns.Question{serviceName, rrtype, rrclass},
 	}
 	cmd := makeCommand(ctx, m, nil, response, errc)
-	cmd.keep = keep
 	ds.cmdCh <- cmd
 }
 
@@ -40,7 +39,7 @@ response - This closure will get called when the query completes.
 errc - This closure will be called when a query has an error.
 */
 func Query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rrtype, rrclass uint16, response QueryAnswered, errc ErrCallback) {
-	query(ctx, flags, ifIndex, serviceName, rrtype, rrclass, false, response, errc)
+	query(ctx, flags, ifIndex, serviceName, rrtype, rrclass, response, errc)
 }
 
 // Instruct the daemon to verify the validity of a resource record that appears to be out of date.

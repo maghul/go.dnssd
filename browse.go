@@ -28,7 +28,7 @@ is a closure called when service data has been updated. errc is called when an e
 func Browse(ctx context.Context, flags Flags, ifIndex int, regType, domain string, response ServiceUpdate, errc ErrCallback) {
 
 	name := fmt.Sprint(regType, ".", domain, ".")
-	query(ctx, 0, 0, name, dns.TypePTR, dns.ClassINET, true,
+	query(ctx, 0, 0, name, dns.TypePTR, dns.ClassINET,
 		func(flags Flags, ifIndex int, rr dns.RR) {
 			ptr := rr.(*dns.PTR)
 			serviceName, serviceType, domain := reformatServiceName(ptr.Ptr)
