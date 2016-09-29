@@ -10,6 +10,12 @@ type rrcache struct {
 }
 
 func (rrc *rrcache) add(rr dns.RR) {
+	for _, rr2 := range rrc.cache {
+		// TODO: conflicting entries?
+		if matchRRs(rr, rr2) {
+			return
+		}
+	}
 	rrc.cache = append(rrc.cache, rr)
 }
 

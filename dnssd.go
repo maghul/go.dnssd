@@ -80,7 +80,6 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 		queryMsg.MsgHdr.Response = false
 		queryMsg.Question = []dns.Question{*q}
 		queryMsg.Answer = matchedAnswers
-		fmt.Println("DNSSD SEND Q=", q)
 		ds.ns.sendQuery(queryMsg)
 	} else {
 		cq.attach(cb)
