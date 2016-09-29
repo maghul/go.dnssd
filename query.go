@@ -22,11 +22,9 @@ func query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rr
 	ds := getDnssd()
 
 	// send the query
-	m := new(dns.Msg)
-	m.Question = []dns.Question{
-		dns.Question{serviceName, rrtype, rrclass},
-	}
-	cmd := makeCommand(ctx, m, nil, response, errc)
+	q := &dns.Question{serviceName, rrtype, rrclass}
+	cb := &callback{ctx, response}
+	cmd := makeCommand(ctx, q, nil, cb, errc)
 	ds.cmdCh <- cmd
 }
 

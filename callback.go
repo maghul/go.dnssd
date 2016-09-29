@@ -1,18 +1,25 @@
 package dnssd
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/miekg/dns"
 )
 
-type callback interface{}
+type callback struct {
+	ctx  context.Context
+	call QueryAnswered
+}
 
-func respond(r callback, rr dns.RR) {
-	switch r := r.(type) {
-	case QueryAnswered:
-		r(0, 0, rr)
+func (r *callback) respond(rr dns.RR) {
+	r.call(0, 0, rr)
+}
+
+func (cb *callback) isValid() bool {
+	select {
+	case <-cb.ctx.Done():
+		return false
 	default:
-		panic(fmt.Sprint("Dont know what", r, " is"))
 	}
+	return true
 }

@@ -8,8 +8,9 @@ import (
 )
 
 type command struct {
-	ctx  context.Context
-	q    *dns.Msg // For queries
+	ctx context.Context
+	//	q    *dns.Msg // For queries
+	q    *dns.Question
 	rr   dns.RR   // For registering records.
 	r    callback // This is a callback.
 	errc ErrCallback
@@ -20,7 +21,7 @@ type command struct {
 
 var commandSerial int = 0
 
-func makeCommand(ctx context.Context, q *dns.Msg, rr dns.RR, r callback, errc ErrCallback) *command {
+func makeCommand(ctx context.Context, q *dns.Question, rr dns.RR, r callback, errc ErrCallback) *command {
 	commandSerial++
 	return &command{ctx, q, rr, r, errc, commandSerial}
 }
@@ -37,6 +38,7 @@ func (cmd *command) isValid() bool {
 	return true
 }
 
+/*
 func (cmd *command) match(q dns.Question, answer dns.RR) bool {
 	if q.Qtype == answer.Header().Rrtype {
 		if q.Name == answer.Header().Name {
@@ -46,3 +48,4 @@ func (cmd *command) match(q dns.Question, answer dns.RR) bool {
 	}
 	return false
 }
+*/
