@@ -1,6 +1,8 @@
 package dnssd
 
 import (
+	"fmt"
+
 	"github.com/miekg/dns"
 )
 
@@ -13,6 +15,10 @@ type questions []*question
 
 func makeQuestion(q *dns.Question) *question {
 	return &question{q, nil}
+}
+
+func (cq *question) String() string {
+	return fmt.Sprint("Question{q=", cq.q, "}")
 }
 
 func (cq *question) match(a *answer) bool {

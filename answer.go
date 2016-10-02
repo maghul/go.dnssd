@@ -1,6 +1,8 @@
 package dnssd
 
 import (
+	"fmt"
+
 	"github.com/miekg/dns"
 )
 
@@ -18,10 +20,11 @@ func (aa *answers) add(a *answer) bool {
 	for _, a2 := range aa.cache {
 		// TODO: conflicting entries?
 		if matchRRs(a.rr, a2.rr) {
-			return
+			return false
 		}
 	}
 	aa.cache = append(aa.cache, a)
+	return true
 }
 
 func (aa *answers) matchQuestion(q *dns.Question) []*answer {
@@ -51,4 +54,8 @@ func rrs(aa []*answer) []dns.RR {
 		r[ii] = a.rr
 	}
 	return r
+}
+
+func (a *answer) String() string {
+	return fmt.Sprint("Answer{rr=", a.rr, "}")
 }

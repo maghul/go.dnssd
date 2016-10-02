@@ -4,8 +4,6 @@ also known as Bonjour(TM).
 package dnssd
 
 import (
-	"fmt"
-
 	"github.com/miekg/dns"
 )
 
@@ -42,7 +40,6 @@ func (ds *dnssd) processing() {
 		case cmd := <-ds.cmdCh:
 			cmd()
 		case msg := <-ds.ns.msgCh:
-			dnssdlog("PROCESSING MSG=", msg)
 			ifIndex := 0 // TODO get this from msgCh
 			ds.handleResponseRecords(ifIndex, msg.Answer)
 			ds.handleResponseRecords(ifIndex, msg.Ns)
@@ -65,9 +62,8 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 	matchedAnswers := ds.rrc.matchQuestion(q)
 
 	// Check the cache for all entries matching and respond with these.
-	fmt.Println("DNSSD  QUESTION=", q)
 	for _, a := range matchedAnswers {
-		fmt.Println("DNSSD  CACHED RR=", a)
+		dnssdlog("ANSWER ", a)
 		ifIndex := 0 // TODO: Should be part of the answer record
 		if cb.isValid() {
 			cb.respond(ifIndex, a)
@@ -84,7 +80,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 		queryMsg.MsgHdr.Response = false
 		queryMsg.Question = []dns.Question{*q}
 		queryMsg.Answer = rrs(matchedAnswers)
-		fmt.Println("DNSSD SEND Q=", q)
+		dnssdlog("sendQuery", cq)
 		ds.ns.sendQuery(queryMsg)
 	} else {
 		cq.attach(cb)
@@ -101,13 +97,20 @@ func (ds *dnssd) runProbe(ifIndex int, q *dns.Question, cb *callback) {
 func (ds *dnssd) handleResponseRecords(ifIndex int, rrs []dns.RR) {
 	for _, rr := range rrs {
 
+		cacheFlush := rr.Header().Class&0x8000 != 0
+		if cacheFlush {
+			dnssdlog("DNSSD FLUSH! ", ifIndex, ", RR=", rr)
+		} else {
+			dnssdlog("DNSSD        ", ifIndex, ", RR=", rr)
+
+		}
+		rr.Header().Class &= 0x7fff
 		cq := ds.findQuery(rr)
 		a := &answer{ifIndex, rr}
-		if cq != nil {
-			fmt.Println("DNSSD RECEIVED RR=", rr)
+		isNew := ds.rrc.add(a)
+		if cq != nil && isNew {
 			cq.respond(ifIndex, a)
 		}
-		ds.rrc.add(a)
 	}
 }
 
