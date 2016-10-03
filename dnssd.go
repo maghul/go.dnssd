@@ -69,7 +69,8 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 	// Find a currently running query and attach this command.
 	cq := ds.cs.findQuestion(q)
 	if cq == nil {
-		cq = ds.cs.makeQuestion(q)
+		cq = makeQuestion(q)
+		ds.cs = append(ds.cs, cq)
 		cq.attach(cb)
 		queryMsg := new(dns.Msg)
 		queryMsg.MsgHdr.Response = false
@@ -99,14 +100,23 @@ func (ds *dnssd) handleResponseRecords(ifIndex int, rrs []dns.RR) {
 
 		}
 		rr.Header().Class &= 0x7fff
-		// TODO: Is this a response or a challenge?
-		cq := ds.cs.findQuestionFromRR(rr)
+		cq := ds.findQuery(rr)
 		a := &answer{ifIndex, rr}
 		isNew := ds.rrc.add(a)
 		if cq != nil && isNew {
 			cq.respond(a)
 		}
 	}
+}
+
+func (ds *dnssd) findQuery(rr dns.RR) *question {
+	for _, dsq := range ds.cs {
+		if matchQuestionAndRR(dsq.q, rr) {
+			return dsq
+		}
+	}
+	// TODO: Just cache the rr.
+	return nil
 }
 
 // Shutdown server will close currently open connections & channel

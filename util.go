@@ -3,6 +3,8 @@ package dnssd
 import (
 	"fmt"
 	"unicode/utf8"
+
+	"github.com/miekg/dns"
 )
 
 // Concatenate a three-part domain name (as provided to the response funcs) into a properly-escaped full domain name.
@@ -52,4 +54,26 @@ func threeDigitsToInt(us []rune) byte {
 	cc += (int(us[1]) - 48) * 10
 	cc += int(us[2]) - 48
 	return byte(cc)
+}
+
+func matchQuestionAndRR(q *dns.Question, rr dns.RR) bool {
+	return (q.Qtype == rr.Header().Rrtype) &&
+		(q.Qclass == rr.Header().Class) &&
+		(q.Name == rr.Header().Name)
+}
+
+func matchRRHeader(rr1, rr2 *dns.RR_Header) bool {
+	return (rr1.Rrtype == rr2.Rrtype) &&
+		(rr1.Class == rr2.Class) &&
+		(rr1.Name == rr2.Name)
+}
+
+func matchRRs(rr1, rr2 dns.RR) bool {
+	return rr1.String() == rr2.String()
+}
+
+func matchQuestions(q1, q2 *dns.Question) bool {
+	return (q1.Qtype == q2.Qtype) &&
+		(q1.Qclass == q2.Qclass) &&
+		(q1.Name == q2.Name)
 }
