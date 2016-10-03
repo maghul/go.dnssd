@@ -80,3 +80,7 @@ func (cqs *questions) findQuestion(q *dns.Question) *question {
 	}
 	return nil
 }
+
+func questionFromRRHeader(rrh *dns.RR_Header) *dns.Question {
+	return &dns.Question{Name: rrh.Name, Qtype: rrh.Rrtype, Qclass: rrh.Class}
+}

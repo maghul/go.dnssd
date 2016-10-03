@@ -12,7 +12,7 @@ import (
 func TestQuery1(t *testing.T) {
 	rrc := make(chan dns.RR)
 	ctx := context.Background()
-	Query(ctx, 0, 0, "turner.local.", dns.TypeA, dns.ClassINET,
+	Query(ctx, 0, 0, &dns.Question{Name: "turner.local.", Qtype: dns.TypeA, Qclass: dns.ClassINET},
 		func(flags Flags, ifIndex int, rr dns.RR) {
 			rrc <- rr
 		}, func(err error) {

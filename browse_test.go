@@ -79,7 +79,7 @@ func TestBrowseAndResolveAndLookup(t *testing.T) {
 			Resolve(ctx, 0, 0, serviceName, regType, domain,
 				func(flags Flags, ifIndex int, fullName, hostName string, port uint16, txt []string) {
 					fmt.Println(prefix, "TEST RESOLVE: serviceName=", serviceName, ", hostname=", hostName, ", port=", port)
-					Query(ctx, 0, 0, hostName, dns.TypeA, dns.ClassINET,
+					Query(ctx, 0, 0, &dns.Question{hostName, dns.TypeA, dns.ClassINET},
 						func(flags Flags, ifIndex int, rr dns.RR) {
 							a := rr.(*dns.A)
 							fmt.Println(prefix, "TEST QUERY: serviceName=", serviceName, ", hostName=", hostName, ":", port, ", A=", a.A)
@@ -89,7 +89,7 @@ func TestBrowseAndResolveAndLookup(t *testing.T) {
 							}
 
 						}, errc)
-					Query(ctx, 0, 0, hostName, dns.TypeAAAA, dns.ClassINET,
+					Query(ctx, 0, 0, &dns.Question{hostName, dns.TypeAAAA, dns.ClassINET},
 						func(flags Flags, ifIndex int, rr dns.RR) {
 							a := rr.(*dns.AAAA)
 							fmt.Println(prefix, "TEST QUERY: serviceName=", serviceName, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA)
