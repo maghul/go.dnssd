@@ -25,8 +25,8 @@ func getDnssd() *dnssd {
 		}
 		cmdCh := make(chan func(), 32)
 		ds = &dnssd{ns, nil, cmdCh, nil, nil}
-		ds.rrc = &answers{} // Remote entries, lookup only
-		ds.rrl = &answers{} // Local entries, repond and lookup.
+		ds.rrc = makeAnswers() // Remote entries, lookup only
+		ds.rrl = makeAnswers() // Local entries, repond and lookup.
 
 		go ds.processing()
 	}
@@ -69,8 +69,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 	// Find a currently running query and attach this command.
 	cq := ds.cs.findQuestion(q)
 	if cq == nil {
-		cq = makeQuestion(q)
-		ds.cs = append(ds.cs, cq)
+		cq = ds.cs.makeQuestion(q)
 		cq.attach(cb)
 		queryMsg := new(dns.Msg)
 		queryMsg.MsgHdr.Response = false
@@ -100,45 +99,14 @@ func (ds *dnssd) handleResponseRecords(ifIndex int, rrs []dns.RR) {
 
 		}
 		rr.Header().Class &= 0x7fff
-		cq := ds.findQuery(rr)
+		// TODO: Is this a response or a challenge?
+		cq := ds.cs.findQuestionFromRR(rr)
 		a := &answer{ifIndex, rr}
 		isNew := ds.rrc.add(a)
 		if cq != nil && isNew {
 			cq.respond(a)
 		}
 	}
-}
-
-func (ds *dnssd) findQuery(rr dns.RR) *question {
-	for _, dsq := range ds.cs {
-		if matchQuestionAndRR(dsq.q, rr) {
-			return dsq
-		}
-	}
-	// TODO: Just cache the rr.
-	return nil
-}
-
-func matchQuestionAndRR(q *dns.Question, rr dns.RR) bool {
-	return (q.Qtype == rr.Header().Rrtype) &&
-		(q.Qclass == rr.Header().Class) &&
-		(q.Name == rr.Header().Name)
-}
-
-func matchRRHeader(rr1, rr2 dns.RR) bool {
-	return (rr1.Header().Rrtype == rr2.Header().Rrtype) &&
-		(rr1.Header().Class == rr2.Header().Class) &&
-		(rr1.Header().Name == rr2.Header().Name)
-}
-
-func matchRRs(rr1, rr2 dns.RR) bool {
-	return rr1.String() == rr2.String()
-}
-
-func matchQuestions(q1, q2 *dns.Question) bool {
-	return (q1.Qtype == q2.Qtype) &&
-		(q1.Qclass == q2.Qclass) &&
-		(q1.Name == q2.Name)
 }
 
 // Shutdown server will close currently open connections & channel

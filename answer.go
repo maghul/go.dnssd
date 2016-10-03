@@ -16,9 +16,12 @@ type answer struct {
 	rr      dns.RR
 }
 
-
 func matchAnswers(a1, a2 *answer) bool {
 	return a1.ifIndex == a2.ifIndex && matchRRs(a1.rr, a2.rr)
+}
+
+func makeAnswers() *answers {
+	return &answers{}
 }
 
 func (aa *answers) add(a *answer) bool {
@@ -32,6 +35,9 @@ func (aa *answers) add(a *answer) bool {
 	return true
 }
 
+func (aa *answers) size() int {
+	return len(aa.cache)
+}
 func (aa *answers) matchQuestion(q *dns.Question) []*answer {
 	var matchedAnswers []*answer
 	for _, a := range aa.cache {
@@ -40,17 +46,6 @@ func (aa *answers) matchQuestion(q *dns.Question) []*answer {
 		}
 	}
 	return matchedAnswers
-}
-
-func (aa *answers) matchQuery(ifIndex int, cq *question) bool {
-	for _, rr := range aa.cache {
-		// TODO:Look at TTL and expire things
-		//      Send ServiceUpdate if a PTR record expires.
-		if cq.match(rr) {
-			return true
-		}
-	}
-	return false
 }
 
 func rrs(aa []*answer) []dns.RR {
