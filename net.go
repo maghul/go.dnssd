@@ -119,6 +119,15 @@ func (nss *netserver) send(msgp **dns.Msg, response bool) {
 	*msgp = msg
 }
 
+func (nss *netservers) addResponseQuestion(ifIndex int, q *dns.Question) {
+	for _, ns := range nss.servers {
+		if ifIndex == 0 || ifIndex == ns.iface.Index {
+			ns.log("addQuestion: q=", q)
+			ns.response.Question = append(ns.response.Question, *q)
+		}
+	}
+}
+
 func (nss *netservers) publish(ifIndex int, rr dns.RR) {
 	for _, ns := range nss.servers {
 		if ifIndex == 0 || ifIndex == ns.iface.Index {
@@ -268,8 +277,8 @@ func (nss *netserver) sendMessage(msg *dns.Msg) error {
 	return nil
 }
 
-func (*netservers) log(msg ...interface{}) {
-	//fmt.Println("NETSERVERS", msg)
+func (nss *netserver) sendResponseRecord(ifIndex int, rr dns.RR) {
+	nss.response.Answer = append(nss.response.Answer, rr)
 }
 
 func (nss *netserver) sendKnownAnswer(ifIndex int, rr dns.RR) {

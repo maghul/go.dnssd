@@ -58,14 +58,37 @@ outer:
 }
 
 func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
-	ds.handleResponseRecords(im, im.msg.Answer)
-	ds.handleResponseRecords(im, im.msg.Ns)
-	ds.handleResponseRecords(im, im.msg.Extra)
+	if im.msg.Response {
+		ds.handleResponseRecords(im, im.msg.Answer)
+		ds.handleResponseRecords(im, im.msg.Ns)
+		ds.handleResponseRecords(im, im.msg.Extra)
+	} else {
+		// Check each question find matching answers and remove
+		// any already known by peer.
+		for _, q := range im.msg.Question {
+			answered := false
+			matchedResponses := ds.rrl.matchQuestion(&q)
+		nextMatchedResponse:
+			for _, mr := range matchedResponses {
+				for _, kr := range im.msg.Answer {
+					if matchRRs(mr.rr, kr) {
+						// Already known by peer so...
+						continue nextMatchedResponse
+					}
+				}
+				ds.ns.sendResponseRecord(im.ifIndex, mr.rr)
+				answered = true
+			}
+			if answered {
+				ds.ns.addResponseQuestion(im.ifIndex, &q)
+			}
+		}
+	}
 }
 
 func (ds *dnssd) publish(ifIndex int, a *answer) {
 	ds.rrl.add(a)
-	ds.ns.publish(ifIndex, a.rr)
+	ds.ns.sendResponseRecord(ifIndex, a.rr)
 }
 
 // Check all cached RR entries and send a question for more
