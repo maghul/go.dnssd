@@ -37,12 +37,6 @@ type incomingMsg struct {
 	from    net.Addr
 }
 
-type netCommand int
-
-const (
-	CLOSE netCommand = iota
-)
-
 var (
 	// Multicast groups used by mDNS
 	mdnsGroupIPv4 = net.IPv4(224, 0, 0, 251)

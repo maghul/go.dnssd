@@ -24,6 +24,7 @@ func query(ctx context.Context, flags Flags, ifIndex int, question *dns.Question
 	// send the query
 	cb := &callback{ctx, ifIndex, response}
 	ds.cmdCh <- func() {
+		dnssdlog("DNSSD QUESTION=", question)
 		ds.runQuery(ifIndex, question, cb)
 	}
 }

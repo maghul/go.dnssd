@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func makeTestDnssd(t *testing.T) (*dnssd, chan *command) {
-	cmdCh := make(chan *command, 32)
+func makeTestDnssd(t *testing.T) (*dnssd, chan func()) {
+	cmdCh := make(chan func(), 32)
 	ns, err := makeTestNetservers()
 	assert.NoError(t, err)
 	assert.NotNil(t, ns)
