@@ -3,3 +3,14 @@ also known as Bonjour(TM).
 */
 package dnssd
 
+import (
+	"github.com/miekg/dns"
+)
+
+type dnssd struct {
+	ns    *netserver
+	cs    *questions
+	cmdCh chan func()
+	rrc   *answers
+	rrl   *answers
+}
