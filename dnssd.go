@@ -58,6 +58,13 @@ outer:
 }
 
 func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
+	closed := ds.rrl.findClosedAnswers()
+	for _, a := range closed {
+		a.rr.Header().Ttl = 0
+		dnssdlog("SENDING UNPUBLISH..", a.rr)
+		ds.ns.publish(a.ifIndex, a.rr)
+	}
+
 	if im.msg.Response {
 		ds.handleResponseRecords(im, im.msg.Answer)
 		ds.handleResponseRecords(im, im.msg.Ns)
@@ -139,7 +146,7 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 		rr.Header().Class &= 0x7fff
 		// TODO: Is this a response or a challenge?
 		cq := ds.cs.findQuestionFromRR(rr)
-		a := &answer{ifIndex, rr}
+		a := &answer{nil, ifIndex, rr}
 		isNew := ds.rrc.add(a)
 		if cq != nil && isNew {
 			cq.respond(a)

@@ -1,6 +1,7 @@
 package dnssd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/miekg/dns"
@@ -12,6 +13,7 @@ type answers struct {
 }
 
 type answer struct {
+	ctx     context.Context // Only used by published RR entries.
 	ifIndex int
 	rr      dns.RR
 }
@@ -50,4 +52,24 @@ func (aa *answers) matchQuestion(q *dns.Question) []*answer {
 
 func (a *answer) String() string {
 	return fmt.Sprint("Answer{rr=", a.rr, "}")
+}
+
+func (aa *answers) findClosedAnswers() []*answer {
+	var closedAnswers []*answer
+	ii := 0
+	for _, a := range aa.cache {
+		if !a.isClosed() {
+			aa.cache[ii] = a
+			ii++
+		} else {
+			closedAnswers = append(closedAnswers, a)
+
+		}
+	}
+	aa.cache = aa.cache[0:ii]
+	return closedAnswers
+}
+
+func (a *answer) isClosed() bool {
+	return contextIsClosed(a.ctx)
 }
