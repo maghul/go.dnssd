@@ -29,6 +29,7 @@ func getDnssd() *dnssd {
 		ds.rrl = makeAnswers() // Local entries, repond and lookup.
 
 		go ds.processing()
+		startup()
 	}
 	return ds
 }
