@@ -60,8 +60,13 @@ func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regTyp
 	fullName := ConstructFullName(serviceName, regType, domain)
 	target := fmt.Sprintf("%s.%s.", host, domain)
 
+	recordsRegistered := uint8(0)
 	registrar := CreateRecordRegistrar(func(record dns.RR, flags int) {
 		fmt.Println("REGISTER: rr=", record)
+		recordsRegistered = recordsRegistered | flag(record)
+		if recordsRegistered == 7 {
+			listener(0, serviceName, regType, domain)
+		}
 	}, func(err error) {
 		errc(err)
 	})
@@ -105,4 +110,16 @@ func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regTyp
 func getManufacturedServiceName(hostname string) string {
 	// TODO: make a bit better.
 	return fmt.Sprintf("%s%x%x", hostname, rand.Uint32(), rand.Uint32())
+}
+
+func flag(rr dns.RR) uint8 {
+	switch rr.Header().Rrtype {
+	case dns.TypePTR:
+		return 1
+	case dns.TypeSRV:
+		return 2
+	case dns.TypeTXT:
+		return 4
+	}
+	return 0
 }
