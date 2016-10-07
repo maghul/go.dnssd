@@ -4,6 +4,8 @@ also known as Bonjour(TM).
 package dnssd
 
 import (
+	"time"
+
 	"github.com/miekg/dns"
 )
 
@@ -35,14 +37,18 @@ func getDnssd() *dnssd {
 }
 
 func (ds *dnssd) processing() {
-
+	t := time.NewTimer(10 * time.Millisecond)
+	nt := time.Millisecond * 10
 outer:
 	for {
+		t.Reset(nt)
 		select {
 		case cmd := <-ds.cmdCh:
 			cmd()
 		case im := <-ds.ns.msgCh:
 			ds.handleIncomingMessage(im)
+		case <-t.C:
+			ds.cleanClosedAnswers()
 		}
 		for {
 			select {
@@ -58,14 +64,17 @@ outer:
 	}
 }
 
-func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
+func (ds *dnssd) cleanClosedAnswers() {
 	closed := ds.rrl.findClosedAnswers()
 	for _, a := range closed {
 		a.rr.Header().Ttl = 0
 		dnssdlog("SENDING UNPUBLISH..", a.rr)
 		ds.ns.publish(a.ifIndex, a.rr)
 	}
+}
 
+func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
+	ds.cleanClosedAnswers()
 	if im.msg.Response {
 		ds.handleResponseRecords(im, im.msg.Answer)
 		ds.handleResponseRecords(im, im.msg.Ns)
