@@ -1,7 +1,9 @@
 package dnssd
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
@@ -11,11 +13,19 @@ func makeTestPtrAnswer(ifIndex int, name, ptr string, ttl uint32) *answer {
 	ptr1 := new(dns.PTR)
 	ptr1.Hdr = dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl} // TODO: TTL correct?
 	ptr1.Ptr = ptr
-	return &answer{nil, ifIndex, ptr1}
+	return &answer{nil, time.Now(), 0, ifIndex, ptr1}
 }
 
 func makeTestPtrQuestion(name string) *question {
 	return &question{&dns.Question{Name: name, Qclass: dns.ClassINET, Qtype: dns.TypePTR}, nil}
+}
+
+func (aa *answers) dump(ref string) {
+	dnssdlog("--------------- START DUMP --- ", ref, " ---------------")
+	for _, a := range aa.cache {
+		dnssdlog("DUMP: ", a)
+	}
+	dnssdlog("---------------- END DUMP --- ", ref, " ---------------")
 }
 
 func TestMatchingAnswers(t *testing.T) {
@@ -68,4 +78,14 @@ func TestFindAnswerFromRR(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, a1, a)
 
+}
+
+func TestAnswerString(t *testing.T) {
+	now := time.Now()
+
+	a1 := makeTestPtrAnswer(2, "hi_there", "wazzup", 3200)
+	a1.added = now
+	a1s := a1.String()
+	expected := fmt.Sprint("Answer{if=2, added=", now, ", rr=hi_there\t3200\tIN\tPTR\twazzup}")
+	assert.Equal(t, expected, a1s)
 }

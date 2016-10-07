@@ -72,6 +72,20 @@ func (cq *question) respond(a *answer) {
 	cq.cb = cq.cb[0:jj]
 }
 
+// Check on callbacks and return true if any callback
+// is still active.
+func (cq *question) isActive() bool {
+	jj := 0
+	for _, cba := range cq.cb {
+		if !cba.isClosed() {
+			cq.cb[jj] = cba
+			jj++
+		}
+	}
+	cq.cb = cq.cb[0:jj]
+	return jj > 0
+}
+
 func (qs *questions) makeQuestion(q *dns.Question) *question {
 	cq := &question{q, nil}
 	qs.qmap = append(qs.qmap, cq)

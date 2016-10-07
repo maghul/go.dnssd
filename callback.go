@@ -22,12 +22,14 @@ func callbackThread(num int) {
 	}
 }
 
+func (cb *callback) isClosed() bool {
+	return contextIsClosed(cb.ctx)
+}
+
 // return false if the callback is invalid and should be removed.
 func (cb *callback) respond(a *answer) bool {
-	select {
-	case <-cb.ctx.Done():
+	if cb.isClosed() {
 		return false
-	default:
 	}
 
 	if cb.ifIndex != 0 && cb.ifIndex != a.ifIndex {

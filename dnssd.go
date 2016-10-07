@@ -48,7 +48,8 @@ outer:
 		case im := <-ds.ns.msgCh:
 			ds.handleIncomingMessage(im)
 		case <-t.C:
-			ds.cleanClosedAnswers()
+			ds.updateTTLOnPublishedRecords()
+			ds.requeryOldAnswers()
 		}
 		for {
 			select {
@@ -64,17 +65,7 @@ outer:
 	}
 }
 
-func (ds *dnssd) cleanClosedAnswers() {
-	closed := ds.rrl.findClosedAnswers()
-	for _, a := range closed {
-		a.rr.Header().Ttl = 0
-		dnssdlog("SENDING UNPUBLISH..", a.rr)
-		ds.ns.publish(a.ifIndex, a.rr)
-	}
-}
-
 func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
-	ds.cleanClosedAnswers()
 	if im.msg.Response {
 		ds.handleResponseRecords(im, im.msg.Answer)
 		ds.handleResponseRecords(im, im.msg.Ns)
@@ -156,12 +147,43 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 		rr.Header().Class &= 0x7fff
 		// TODO: Is this a response or a challenge?
 		cq := ds.cs.findQuestionFromRR(rr)
-		a := &answer{nil, ifIndex, rr}
-		isNew := ds.rrc.add(a)
+		a, isNew := ds.rrc.addRecord(ifIndex, rr)
 		if cq != nil && isNew {
 			cq.respond(a)
 		}
 	}
+}
+
+// Look through ds.rrl for records which are about to expire
+// and republish them unless their context has cancelled them
+func (ds *dnssd) updateTTLOnPublishedRecords() {
+	ds.rrl.findOldAnswers(func(a *answer) {
+		// Republish old answers...
+		a.added = time.Now()
+		a.requeried = 0
+		dnssdlog("SENDING REPUBLISH..", a.rr)
+		ds.ns.sendResponseRecord(a.ifIndex, a.rr)
+	}, func(a *answer) {
+		a.rr.Header().Ttl = 0
+		dnssdlog("SENDING UNPUBLISH..", a.rr)
+		ds.ns.sendResponseRecord(a.ifIndex, a.rr)
+	})
+}
+
+// Look through ds.rrc and check if the record is about to
+// expire, if we are still interested requery otherwise just close
+// the answer.
+func (ds *dnssd) requeryOldAnswers() {
+	ds.rrc.findOldAnswers(func(a *answer) {
+		// Requery the record if we have a question for it...
+		q := ds.cs.findQuestionFromRR(a.rr)
+		if q != nil && q.isActive() {
+			ds.ns.sendQuestion(a.ifIndex, q.q)
+		}
+	}, func(a *answer) {
+		// The record has been removed
+		dnssdlog("Record removed:", a)
+	})
 }
 
 // Shutdown server will close currently open connections & channel
