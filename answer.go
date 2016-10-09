@@ -66,36 +66,42 @@ func (a *answer) String() string {
 
 // Look through the cache and requery answers which are
 // expiring.
-func (aa *answers) findOldAnswers(requery func(a *answer), remove func(a *answer)) {
+// Return a time for next record event.
+func (aa *answers) findOldAnswers(requery func(a *answer), remove func(a *answer)) time.Time {
 	now := time.Now()
+	var nextTime time.Time
 	ii := 0
 	for _, a := range aa.cache {
 
-		switch a.checkRecord(now) {
-		case -1:
+		if a.isClosed() {
 			remove(a)
 			continue
-		case 1:
-			a.requeried++
-			requery(a)
-			fallthrough
-		case 0:
-			aa.cache[ii] = a
-			ii++
 		}
+		rt := a.getNextCheckTime()
+
+		if now.After(rt) {
+			if a.requeried < 2 {
+				a.requeried++
+				requery(a)
+			} else {
+				remove(a)
+				continue
+			}
+		} else {
+			if nextTime.IsZero() || nextTime.After(rt) {
+				nextTime = rt
+			}
+		}
+		aa.cache[ii] = a
+		ii++
+
 	}
 	aa.cache = aa.cache[0:ii]
 	//	aa.dump("findOldAnswers")
+	return nextTime
 }
 
-// Check the record:
-// 1 - means requery/republish
-// 0 - means OK, no changes
-// -1 - means remove
-func (a *answer) checkRecord(now time.Time) int {
-	if a.isClosed() {
-		return -1
-	}
+func (a *answer) getNextCheckTime() time.Time {
 	rt := a.added
 	ttl := time.Second * time.Duration(a.rr.Header().Ttl)
 	switch a.requeried {
@@ -107,16 +113,7 @@ func (a *answer) checkRecord(now time.Time) int {
 		rt = rt.Add(ttl)
 
 	}
-	if now.After(rt) {
-		dnssdlog("checkRecord: TRIGGER!: a=", a, ", requeried=", a.requeried, ",  rt=", rt, ", ttl=", ttl)
-		if a.requeried < 2 {
-			a.requeried++
-			return 1 // Requery
-		} else {
-			return -1 // Remove
-		}
-	}
-	return 0 // OK, do nothing
+	return rt
 }
 
 func (a *answer) isClosed() bool {

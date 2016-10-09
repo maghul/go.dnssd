@@ -42,20 +42,29 @@ func getDnssd() *dnssd {
 
 func (ds *dnssd) processing() {
 	t := time.NewTimer(10 * time.Millisecond)
-	nt := time.Millisecond * 1000
+	t.Stop()
+	var nt time.Time
+	var st time.Time
 outer:
 	for {
-		t.Reset(nt)
+
+		if nt.IsZero() {
+			t.Stop()
+		} else if st != nt {
+			st = nt
+			dnssdlog("Next Timed event occurs at ", st)
+			now := time.Now()
+			t.Reset(st.Sub(now))
+		}
 		select {
 		case cmd := <-ds.cmdCh:
 			cmd()
 		case im := <-ds.ns.msgCh:
 			ds.handleIncomingMessage(im)
 		case ctx := <-ds.cn:
-			ds.handleClosedContext(ctx)
+			nt = ds.handleClosedContext(ctx)
 		case <-t.C:
-			ds.updateTTLOnPublishedRecords()
-			ds.requeryOldAnswers()
+			nt = ds.checkRunningEvents()
 		}
 		for {
 			select {
@@ -64,7 +73,7 @@ outer:
 			case im := <-ds.ns.msgCh:
 				ds.handleIncomingMessage(im)
 			case ctx := <-ds.cn:
-				ds.handleClosedContext(ctx)
+				nt = ds.handleClosedContext(ctx)
 			default:
 				ds.ns.sendPending()
 				continue outer
@@ -73,15 +82,33 @@ outer:
 	}
 }
 
-func (ds *dnssd) handleClosedContext(ctx context.Context) {
+func (ds *dnssd) handleClosedContext(ctx context.Context) time.Time {
 	dnssdlog("handleClosedContext: ctx=", ctx)
 	// This will do what we want when a context has been closed
 	// but it will do unnecessary scanning of all records so it
 	// can be optimized.
-	ds.updateTTLOnPublishedRecords()
-	ds.requeryOldAnswers()
+	return ds.checkRunningEvents()
 }
 
+func (ds *dnssd) checkRunningEvents() time.Time {
+	t1 := ds.updateTTLOnPublishedRecords()
+	t2 := ds.requeryOldAnswers()
+	nt := getNextTime(t1, t2)
+	return nt
+}
+
+func getNextTime(t1, t2 time.Time) time.Time {
+	if t1.IsZero() {
+		return t2
+	}
+	if t2.IsZero() {
+		return t1
+	}
+	if t1.After(t2) {
+		return t1
+	}
+	return t2
+}
 func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 	if im.msg.Response {
 		ds.handleResponseRecords(im, im.msg.Answer)
@@ -175,8 +202,9 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 
 // Look through ds.rrl for records which are about to expire
 // and republish them unless their context has cancelled them
-func (ds *dnssd) updateTTLOnPublishedRecords() {
-	ds.rrl.findOldAnswers(func(a *answer) {
+// Return a time for next published record to update TTL for
+func (ds *dnssd) updateTTLOnPublishedRecords() time.Time {
+	return ds.rrl.findOldAnswers(func(a *answer) {
 		// Republish old answers...
 		a.added = time.Now()
 		a.requeried = 0
@@ -192,8 +220,9 @@ func (ds *dnssd) updateTTLOnPublishedRecords() {
 // Look through ds.rrc and check if the record is about to
 // expire, if we are still interested requery otherwise just close
 // the answer.
-func (ds *dnssd) requeryOldAnswers() {
-	ds.rrc.findOldAnswers(func(a *answer) {
+// Return a time for next record to requery.
+func (ds *dnssd) requeryOldAnswers() time.Time {
+	return ds.rrc.findOldAnswers(func(a *answer) {
 		// Requery the record if we have a question for it...
 		q := ds.cs.findQuestionFromRR(a.rr)
 		if q != nil && q.isActive() {
