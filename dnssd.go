@@ -4,6 +4,7 @@ also known as Bonjour(TM).
 package dnssd
 
 import (
+	"context"
 	"time"
 
 	"github.com/miekg/dns"
@@ -15,6 +16,8 @@ type dnssd struct {
 	cmdCh chan func()
 	rrc   *answers
 	rrl   *answers
+	ctxn  *contextNotifier
+	cn    chan context.Context
 }
 
 var ds *dnssd
@@ -26,9 +29,10 @@ func getDnssd() *dnssd {
 			panic("Could not start netserver")
 		}
 		cmdCh := make(chan func(), 32)
-		ds = &dnssd{ns, &questions{nil}, cmdCh, nil, nil}
+		ds = &dnssd{ns: ns, cs: &questions{nil}, cmdCh: cmdCh, ctxn: initContextNotifier()}
 		ds.rrc = makeAnswers() // Remote entries, lookup only
 		ds.rrl = makeAnswers() // Local entries, repond and lookup.
+		ds.cn = ds.ctxn.getContextNotifications()
 
 		go ds.processing()
 		startup()
@@ -38,7 +42,7 @@ func getDnssd() *dnssd {
 
 func (ds *dnssd) processing() {
 	t := time.NewTimer(10 * time.Millisecond)
-	nt := time.Millisecond * 10
+	nt := time.Millisecond * 1000
 outer:
 	for {
 		t.Reset(nt)
@@ -47,6 +51,8 @@ outer:
 			cmd()
 		case im := <-ds.ns.msgCh:
 			ds.handleIncomingMessage(im)
+		case ctx := <-ds.cn:
+			ds.handleClosedContext(ctx)
 		case <-t.C:
 			ds.updateTTLOnPublishedRecords()
 			ds.requeryOldAnswers()
@@ -57,12 +63,23 @@ outer:
 				cmd()
 			case im := <-ds.ns.msgCh:
 				ds.handleIncomingMessage(im)
+			case ctx := <-ds.cn:
+				ds.handleClosedContext(ctx)
 			default:
 				ds.ns.sendPending()
 				continue outer
 			}
 		}
 	}
+}
+
+func (ds *dnssd) handleClosedContext(ctx context.Context) {
+	dnssdlog("handleClosedContext: ctx=", ctx)
+	// This will do what we want when a context has been closed
+	// but it will do unnecessary scanning of all records so it
+	// can be optimized.
+	ds.updateTTLOnPublishedRecords()
+	ds.requeryOldAnswers()
 }
 
 func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
@@ -95,6 +112,7 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 }
 
 func (ds *dnssd) publish(ifIndex int, a *answer) {
+	ds.ctxn.addContextForNotifications(a.ctx)
 	ds.rrl.add(a)
 	ds.ns.sendResponseRecord(ifIndex, a.rr)
 }
@@ -106,6 +124,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 
 	// Find a currently running query and attach this command.
 	cq := ds.cs.findQuestion(q)
+	ds.ctxn.addContextForNotifications(cb.ctx)
 
 	// Check the cache for all entries matching and respond with these.
 	for _, a := range matchedAnswers {

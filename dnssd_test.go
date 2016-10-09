@@ -13,9 +13,11 @@ func makeTestDnssd(t *testing.T) (*dnssd, chan func()) {
 	assert.NoError(t, err)
 	assert.NotNil(t, ns)
 
-	ds = &dnssd{ns, &questions{nil}, cmdCh, nil, nil}
+	ds = &dnssd{ns: ns, cs: &questions{nil}, cmdCh: cmdCh, ctxn: initContextNotifier()}
 	ds.rrc = makeAnswers() // Remote entries, lookup only
 	ds.rrl = makeAnswers() // Local entries, repond and lookup.
+	ds.cn = ds.ctxn.getContextNotifications()
+
 	testlog("response=", ds.ns.response)
 	return ds, cmdCh
 }
