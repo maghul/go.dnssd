@@ -36,8 +36,12 @@ func (cb *callback) respond(a *answer) bool {
 		return true
 	}
 
+	flags := None
+	if a.rr.Header().Ttl > 0 {
+		flags = RecordAdded
+	}
 	f := func() {
-		cb.call(0, a.ifIndex, a.rr)
+		cb.call(flags, a.ifIndex, a.rr)
 	}
 
 	select {
