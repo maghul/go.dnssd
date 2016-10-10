@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBrowse(t *testing.T) {
+func NoTestBrowse(t *testing.T) {
 	rrc := make(chan bool)
 	defer close(rrc)
 
@@ -34,7 +34,7 @@ func TestBrowse(t *testing.T) {
 	println("done...")
 }
 
-func TestBrowseAndResolve(t *testing.T) {
+func NoTestBrowseAndResolve(t *testing.T) {
 	rrc := make(chan bool)
 	//	defer close(rrc)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -68,7 +68,7 @@ func TestBrowseAndResolve(t *testing.T) {
 	assert.Equal(t, "tjosan:www.facebook.it:4711:[hi=there]", <-rrc)
 }
 
-func TestBrowseAndResolveAndLookup(t *testing.T) {
+func NoTestBrowseAndResolveAndLookup(t *testing.T) {
 	prefix := "-------------- "
 	rrc := make(chan string)
 

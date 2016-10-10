@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestQuery1(t *testing.T) {
+func NoTestQuery1(t *testing.T) {
 	rrc := make(chan dns.RR)
 	ctx := context.Background()
 	Query(ctx, 0, 0, &dns.Question{Name: "turner.local.", Qtype: dns.TypeA, Qclass: dns.ClassINET},

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRegister1(t *testing.T) {
+func NoTestRegister1(t *testing.T) {
 	bc := make(chan string)
 
 	errc := func(err error) {

@@ -78,7 +78,7 @@ func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regTyp
 	registrar(ctx, flags, ifIndex, ptrRR)
 
 	srvRR := new(dns.SRV)
-	srvRR.Hdr = dns.RR_Header{Name: fullName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 3200} // TODO: TTL correct?
+	srvRR.Hdr = dns.RR_Header{Name: fullName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 20} // TODO: TTL correct?
 	srvRR.Target = target
 	srvRR.Port = port
 	srvRR.Priority = 0 // TODO: correct?
