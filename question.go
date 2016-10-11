@@ -26,8 +26,7 @@ func (cq *question) match(a *answer) bool {
 	rr := a.rr
 	if q.Qtype == rr.Header().Rrtype {
 		if q.Name == rr.Header().Name {
-			ifIndex := 0 // TODO: should be part of answer record
-			cq.respond(ifIndex, a)
+			cq.respond(a)
 			return true
 		}
 	}
@@ -57,12 +56,11 @@ func (cq *question) detach(cb *callback) {
 }
 
 // Send an RR to all attached callbacks
-func (cq *question) respond(ifIndex int, a *answer) {
+func (cq *question) respond(a *answer) {
 	jj := 0
 	dnssdlog("QUESTION respond cq=", cq, ", callbacks=", len(cq.cb), ", answer=", a)
 	for _, cba := range cq.cb {
-		if cba.isValid() {
-			cba.respond(ifIndex, a)
+		if cba.respond(a) {
 			cq.cb[jj] = cba
 			jj++
 		} else {

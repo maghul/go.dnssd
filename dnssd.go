@@ -63,10 +63,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 	// Check the cache for all entries matching and respond with these.
 	for _, a := range matchedAnswers {
 		dnssdlog("ANSWER ", a)
-		ifIndex := 0 // TODO: Should be part of the answer record
-		if cb.isValid() {
-			cb.respond(ifIndex, a)
-		}
+		cb.respond(a)
 	}
 
 	// Find a currently running query and attach this command.
@@ -107,7 +104,7 @@ func (ds *dnssd) handleResponseRecords(ifIndex int, rrs []dns.RR) {
 		a := &answer{ifIndex, rr}
 		isNew := ds.rrc.add(a)
 		if cq != nil && isNew {
-			cq.respond(ifIndex, a)
+			cq.respond(a)
 		}
 	}
 }

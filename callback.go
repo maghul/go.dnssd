@@ -6,8 +6,9 @@ import (
 )
 
 type callback struct {
-	ctx  context.Context
-	call QueryAnswered
+	ctx     context.Context
+	ifIndex int
+	call    QueryAnswered
 }
 
 var callbackChan chan func() = make(chan func())
@@ -21,15 +22,25 @@ func callbackThread(num int) {
 	}
 }
 
-func (r *callback) respond(ifIndex int, a *answer) {
-	f := func() {
-		r.call(0, ifIndex, a.rr)
+// return false if the callback is invalid and should be removed.
+func (cb *callback) respond(a *answer) bool {
+	select {
+	case <-cb.ctx.Done():
+		return false
+	default:
 	}
 
-	dnssdlog("CALLBACK ", r.isValid(), ", ANSWER=", a)
+	if cb.ifIndex != 0 && cb.ifIndex != a.ifIndex {
+		return true
+	}
+
+	f := func() {
+		cb.call(0, a.ifIndex, a.rr)
+	}
+
 	select {
 	case callbackChan <- f:
-		return
+		return true
 	default:
 	}
 
@@ -42,14 +53,6 @@ func (r *callback) respond(ifIndex int, a *answer) {
 		go callbackThread(callbackThreads)
 		dnssdlog("------------------> started callback thread #", callbackThreads)
 		callbackChan <- f
-	}
-}
-
-func (cb *callback) isValid() bool {
-	select {
-	case <-cb.ctx.Done():
-		return false
-	default:
 	}
 	return true
 }

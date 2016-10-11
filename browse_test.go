@@ -36,7 +36,7 @@ func TestBrowse(t *testing.T) {
 
 func TestBrowseAndResolve(t *testing.T) {
 	rrc := make(chan bool)
-	defer close(rrc)
+	//	defer close(rrc)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -65,6 +65,9 @@ func TestBrowseAndResolve(t *testing.T) {
 	println("done...")
 }
 
+	assert.Equal(t, "tjosan:www.facebook.it:4711:[hi=there]", <-rrc)
+}
+
 func TestBrowseAndResolveAndLookup(t *testing.T) {
 	prefix := "-------------- "
 	rrc := make(chan string)
@@ -75,24 +78,24 @@ func TestBrowseAndResolveAndLookup(t *testing.T) {
 	}
 	Browse(ctx, 0, 0, "_raop._tcp", "local",
 		func(found bool, flags Flags, ifIndex int, serviceName, regType, domain string) {
-			fmt.Println(prefix, "TEST BROWSE: ifIndex=", ifIndex, ", serviceName=", serviceName, ", regType=", regType, ", domain=", domain)
-			Resolve(ctx, 0, 0, serviceName, regType, domain,
+			testlog(prefix, "TEST BROWSE: ifIndex=", ifIndex, ", serviceName=", serviceName, ", regType=", regType, ", domain=", domain)
+			Resolve(ctx, 0, ifIndex, serviceName, regType, domain,
 				func(flags Flags, ifIndex int, fullName, hostName string, port uint16, txt []string) {
-					fmt.Println(prefix, "TEST RESOLVE: serviceName=", serviceName, ", hostname=", hostName, ", port=", port)
-					Query(ctx, 0, 0, &dns.Question{hostName, dns.TypeA, dns.ClassINET},
+					testlog(prefix, "TEST RESOLVE: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostname=", hostName, ", port=", port)
+					Query(ctx, 0, ifIndex, &dns.Question{Name: hostName, Qtype: dns.TypeA, Qclass: dns.ClassINET},
 						func(flags Flags, ifIndex int, rr dns.RR) {
 							a := rr.(*dns.A)
-							fmt.Println(prefix, "TEST QUERY: serviceName=", serviceName, ", hostName=", hostName, ":", port, ", A=", a.A)
+							testlog(prefix, "TEST QUERY: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostName=", hostName, ":", port, ", A=", a.A)
 							select {
 							case rrc <- fmt.Sprint("RESULT: serviceName=", serviceName, ", ifIndex=", ifIndex, ", hostName=", hostName, ":", port, ", A=", a.A):
 							default:
 							}
 
 						}, errc)
-					Query(ctx, 0, 0, &dns.Question{hostName, dns.TypeAAAA, dns.ClassINET},
+					Query(ctx, 0, ifIndex, &dns.Question{Name: hostName, Qtype: dns.TypeAAAA, Qclass: dns.ClassINET},
 						func(flags Flags, ifIndex int, rr dns.RR) {
 							a := rr.(*dns.AAAA)
-							fmt.Println(prefix, "TEST QUERY: serviceName=", serviceName, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA)
+							testlog(prefix, "TEST QUERY: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA)
 							select {
 							case rrc <- fmt.Sprint("RESULT: serviceName=", serviceName, ", ifIndex=", ifIndex, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA):
 							default:
@@ -108,5 +111,4 @@ func TestBrowseAndResolveAndLookup(t *testing.T) {
 		fmt.Println("RESULT... ", b)
 	}
 
-	println("done...")
 }

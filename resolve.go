@@ -53,6 +53,6 @@ func Resolve(ctx context.Context, flags Flags, ifIndex int, serviceName, regType
 		}
 	}
 
-	query(ctx, 0, 0, &dns.Question{qname, dns.TypeSRV, dns.ClassINET}, conflate, errc)
-	query(ctx, 0, 0, &dns.Question{qname, dns.TypeTXT, dns.ClassINET}, conflate, errc)
+	query(ctx, 0, ifIndex, &dns.Question{Name: qname, Qtype: dns.TypeSRV, Qclass: dns.ClassINET}, conflate, errc)
+	query(ctx, 0, ifIndex, &dns.Question{Name: qname, Qtype: dns.TypeTXT, Qclass: dns.ClassINET}, conflate, errc)
 }

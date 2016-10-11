@@ -22,7 +22,7 @@ func query(ctx context.Context, flags Flags, ifIndex int, question *dns.Question
 	ds := getDnssd()
 
 	// send the query
-	cb := &callback{ctx, response}
+	cb := &callback{ctx, ifIndex, response}
 	ds.cmdCh <- func() {
 		ds.runQuery(question, cb)
 	}
