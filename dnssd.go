@@ -9,7 +9,7 @@ import (
 
 type dnssd struct {
 	ns    *netservers
-	cs    questions
+	cs    *questions
 	cmdCh chan func()
 	rrc   *answers
 	rrl   *answers
@@ -24,7 +24,7 @@ func getDnssd() *dnssd {
 			panic("Could not start netserver")
 		}
 		cmdCh := make(chan func(), 32)
-		ds = &dnssd{ns, nil, cmdCh, nil, nil}
+		ds = &dnssd{ns, &questions{nil}, cmdCh, nil, nil}
 		ds.rrc = makeAnswers() // Remote entries, lookup only
 		ds.rrl = makeAnswers() // Local entries, repond and lookup.
 
@@ -69,8 +69,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 	// Find a currently running query and attach this command.
 	cq := ds.cs.findQuestion(q)
 	if cq == nil {
-		cq = makeQuestion(q)
-		ds.cs = append(ds.cs, cq)
+		cq = ds.cs.makeQuestion(q)
 		cq.attach(cb)
 		queryMsg := new(dns.Msg)
 		queryMsg.MsgHdr.Response = false
@@ -100,23 +99,14 @@ func (ds *dnssd) handleResponseRecords(ifIndex int, rrs []dns.RR) {
 
 		}
 		rr.Header().Class &= 0x7fff
-		cq := ds.findQuery(rr)
+		// TODO: Is this a response or a challenge?
+		cq := ds.cs.findQuestionFromRR(rr)
 		a := &answer{ifIndex, rr}
 		isNew := ds.rrc.add(a)
 		if cq != nil && isNew {
 			cq.respond(a)
 		}
 	}
-}
-
-func (ds *dnssd) findQuery(rr dns.RR) *question {
-	for _, dsq := range ds.cs {
-		if matchQuestionAndRR(dsq.q, rr) {
-			return dsq
-		}
-	}
-	// TODO: Just cache the rr.
-	return nil
 }
 
 // Shutdown server will close currently open connections & channel
