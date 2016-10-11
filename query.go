@@ -24,8 +24,9 @@ func query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rr
 	// send the query
 	q := &dns.Question{serviceName, rrtype, rrclass}
 	cb := &callback{ctx, response}
-	cmd := makeCommand(ctx, q, nil, cb, errc)
-	ds.cmdCh <- cmd
+	ds.cmdCh <- func() {
+		ds.runQuery(probe, ctx, q, cb)
+	}
 }
 
 /*

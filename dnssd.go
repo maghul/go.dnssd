@@ -10,7 +10,7 @@ import (
 type dnssd struct {
 	ns    *netserver
 	cs    questions
-	cmdCh chan *command
+	cmdCh chan func()
 	rrc   *rrcache
 	rrl   *rrcache
 }
@@ -24,7 +24,7 @@ func getDnssd() *dnssd {
 			panic("Could not start netserver")
 		}
 		ns.startReceiving()
-		cmdCh := make(chan *command, 32)
+		cmdCh := make(chan func(), 32)
 		ds = &dnssd{ns, nil, cmdCh, nil, nil}
 		ds.rrc = &rrcache{} // Remote entries, lookup only
 		ds.rrl = &rrcache{} // Local entries, repond and lookup.
@@ -37,12 +37,7 @@ func (ds *dnssd) processing() {
 	for {
 		select {
 		case cmd := <-ds.cmdCh:
-			if cmd.rr != nil {
-				// Context?
-				ds.publish(cmd.rr)
-			} else {
-				ds.runQuery(cmd.ctx, cmd.q, cmd.r)
-			}
+			cmd()
 		case msg := <-ds.ns.msgCh:
 			dnssdlog("PROCESSING MSG=", msg)
 			ifIndex := 0 // TODO get this from msgCh
@@ -61,7 +56,9 @@ func (ds *dnssd) publish(rr dns.RR) {
 	go ds.ns.sendUnsolicitedMessage(resp)
 }
 
-func (ds *dnssd) runQuery(q *dns.Question, cb *callback) {
+// Check all cached RR entries and send a question for more
+// data.
+func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 	matchedAnswers := ds.rrc.matchQuestion(q)
 
 	// Check the cache for all entries matching and respond with these.

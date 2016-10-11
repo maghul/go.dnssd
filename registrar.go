@@ -31,6 +31,7 @@ The RegisterRecord closure returned is used to record new register entries.
 */
 func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) RegisterRecord {
 	ds := getDnssd()
+
 	return func(ctx context.Context, flags Flags, ifIndex int, record dns.RR) {
 		if !flags.required(Unique | Shared) {
 			errc(errBadFlags)
@@ -38,11 +39,18 @@ func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) Register
 		}
 		go func() {
 			rrChan := make(chan dns.RR, 2)
+			question := questionFromRRHeader(record.Header())
+			response := func(flags Flags, ifIndex int, rr dns.RR) {
+				rrChan <- rr
+			}
 			for count := 3; count > 0; count-- {
 				ctxc, _ := context.WithTimeout(ctx, 250*time.Millisecond)
-				Query(ctxc, flags, ifIndex, record.Header().Name, record.Header().Rrtype, record.Header().Class, func(flags Flags, ifIndex int, rr dns.RR) {
-					rrChan <- rr
-				}, errc)
+				cb := &callback{ctx, ifIndex, response}
+				ds.cmdCh <- func() {
+					dnssdlog("DNSSD PROBE=", question)
+					ds.runProbe(ifIndex, question, cb)
+				}
+
 				select {
 				case <-ctxc.Done():
 					// Timeout of request
@@ -62,7 +70,9 @@ func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) Register
 			// Publish with exponential backoff: ", name, ": 0, 20, 40, 80, 160, 320, 640, 1280
 			listener(record, 0)
 			for count := 8; count > 0; count-- {
-				ds.cmdCh <- makeCommand(ctx, nil, record, listener, errc)
+				ds.cmdCh <- func() {
+					ds.publish(record)
+				}
 				time.Sleep(time.Duration(publishTime) * time.Millisecond)
 				publishTime *= 2
 			}
