@@ -15,12 +15,13 @@ func makeQuestion(q *dns.Question) *question {
 	return &question{q, nil}
 }
 
-func (cq *question) match(rr dns.RR) bool {
+func (cq *question) match(a *answer) bool {
 	q := cq.q
+	rr := a.rr
 	if q.Qtype == rr.Header().Rrtype {
 		if q.Name == rr.Header().Name {
 			ifIndex := 0 // TODO: should be part of answer record
-			cq.respond(ifIndex, rr)
+			cq.respond(ifIndex, a)
 			return true
 		}
 	}
@@ -50,12 +51,12 @@ func (cq *question) detach(cb *callback) {
 }
 
 // Send an RR to all attached callbacks
-func (cq *question) respond(ifIndex int, rr dns.RR) {
+func (cq *question) respond(ifIndex int, a *answer) {
 	jj := 0
-	dnssdlog("##############  respond cq=", cq, ", callbacks=", len(cq.cb), ", rr=", rr)
+	dnssdlog("QUESTION respond cq=", cq, ", callbacks=", len(cq.cb), ", answer=", a)
 	for _, cba := range cq.cb {
 		if cba.isValid() {
-			cba.respond(rr)
+			cba.respond(ifIndex, a)
 			cq.cb[jj] = cba
 			jj++
 		} else {

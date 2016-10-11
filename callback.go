@@ -2,8 +2,6 @@ package dnssd
 
 import (
 	"context"
-
-	"github.com/miekg/dns"
 )
 
 type callback struct {
@@ -11,8 +9,8 @@ type callback struct {
 	call QueryAnswered
 }
 
-func (r *callback) respond(rr dns.RR) {
-	r.call(0, 0, rr)
+func (r *callback) respond(ifIndex int, a *answer) {
+	r.call(0, ifIndex, a.rr)
 }
 
 func (cb *callback) isValid() bool {

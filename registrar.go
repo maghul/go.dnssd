@@ -71,7 +71,7 @@ func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) Register
 			listener(record, 0)
 			for count := 8; count > 0; count-- {
 				ds.cmdCh <- func() {
-					ds.publish(record)
+					ds.publish(&answer{0, record})
 				}
 				time.Sleep(time.Duration(publishTime) * time.Millisecond)
 				publishTime *= 2

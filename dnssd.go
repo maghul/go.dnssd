@@ -4,6 +4,8 @@ also known as Bonjour(TM).
 package dnssd
 
 import (
+	"fmt"
+
 	"github.com/miekg/dns"
 )
 
@@ -11,8 +13,8 @@ type dnssd struct {
 	ns    *netserver
 	cs    questions
 	cmdCh chan func()
-	rrc   *rrcache
-	rrl   *rrcache
+	rrc   *answers
+	rrl   *answers
 }
 
 var ds *dnssd
@@ -26,8 +28,9 @@ func getDnssd() *dnssd {
 		ns.startReceiving()
 		cmdCh := make(chan func(), 32)
 		ds = &dnssd{ns, nil, cmdCh, nil, nil}
-		ds.rrc = &rrcache{} // Remote entries, lookup only
-		ds.rrl = &rrcache{} // Local entries, repond and lookup.
+		ds.rrc = &answers{} // Remote entries, lookup only
+		ds.rrl = &answers{} // Local entries, repond and lookup.
+
 		go ds.processing()
 	}
 	return ds
@@ -47,12 +50,12 @@ func (ds *dnssd) processing() {
 		}
 	}
 }
-func (ds *dnssd) publish(rr dns.RR) {
-	ds.rrl.add(rr)
+func (ds *dnssd) publish(a *answer) {
+	ds.rrl.add(a)
 	// TODO: We may want to batch these.
 	resp := new(dns.Msg)
 	resp.MsgHdr.Response = true
-	resp.Answer = []dns.RR{rr}
+	resp.Answer = []dns.RR{a.rr}
 	go ds.ns.sendUnsolicitedMessage(resp)
 }
 
@@ -63,10 +66,11 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 
 	// Check the cache for all entries matching and respond with these.
 	fmt.Println("DNSSD  QUESTION=", q)
-	for _, rr := range matchedAnswers {
-		fmt.Println("DNSSD  CACHED RR=", rr)
+	for _, a := range matchedAnswers {
+		fmt.Println("DNSSD  CACHED RR=", a)
+		ifIndex := 0 // TODO: Should be part of the answer record
 		if cb.isValid() {
-			cb.respond(rr)
+			cb.respond(ifIndex, a)
 		}
 	}
 
@@ -79,7 +83,8 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 		queryMsg := new(dns.Msg)
 		queryMsg.MsgHdr.Response = false
 		queryMsg.Question = []dns.Question{*q}
-		queryMsg.Answer = matchedAnswers
+		queryMsg.Answer = rrs(matchedAnswers)
+		fmt.Println("DNSSD SEND Q=", q)
 		ds.ns.sendQuery(queryMsg)
 	} else {
 		cq.attach(cb)
@@ -97,11 +102,12 @@ func (ds *dnssd) handleResponseRecords(ifIndex int, rrs []dns.RR) {
 	for _, rr := range rrs {
 
 		cq := ds.findQuery(rr)
+		a := &answer{ifIndex, rr}
 		if cq != nil {
 			fmt.Println("DNSSD RECEIVED RR=", rr)
-			cq.respond(ifIndex, rr)
+			cq.respond(ifIndex, a)
 		}
-		ds.rrc.add(rr)
+		ds.rrc.add(a)
 	}
 }
 
