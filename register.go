@@ -3,6 +3,7 @@ package dnssd
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 
 	"github.com/miekg/dns"
@@ -51,6 +52,9 @@ func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regTyp
 		}
 		host = h
 	}
+	if serviceName == "" {
+		serviceName = getManufacturedServiceName(host)
+	}
 
 	fullRegType := fmt.Sprintf("%s.%s.", regType, domain)
 	fullName := ConstructFullName(serviceName, regType, domain)
@@ -96,4 +100,9 @@ func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regTyp
 		}
 		fmt.Println("AddRecord=", rr)
 	}
+}
+
+func getManufacturedServiceName(hostname string) string {
+	// TODO: make a bit better.
+	return fmt.Sprintf("%s%x%x", hostname, rand.Uint32(), rand.Uint32())
 }
