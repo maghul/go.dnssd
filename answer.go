@@ -16,10 +16,15 @@ type answer struct {
 	rr      dns.RR
 }
 
+
+func matchAnswers(a1, a2 *answer) bool {
+	return a1.ifIndex == a2.ifIndex && matchRRs(a1.rr, a2.rr)
+}
+
 func (aa *answers) add(a *answer) bool {
 	for _, a2 := range aa.cache {
 		// TODO: conflicting entries?
-		if matchRRs(a.rr, a2.rr) {
+		if matchAnswers(a, a2) {
 			return false
 		}
 	}

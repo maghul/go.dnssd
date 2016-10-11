@@ -84,7 +84,7 @@ func TestBrowseAndResolveAndLookup(t *testing.T) {
 							a := rr.(*dns.A)
 							fmt.Println(prefix, "TEST QUERY: serviceName=", serviceName, ", hostName=", hostName, ":", port, ", A=", a.A)
 							select {
-							case rrc <- fmt.Sprint("RESULT: serviceName=", serviceName, ", hostName=", hostName, ":", port, ", A=", a.A):
+							case rrc <- fmt.Sprint("RESULT: serviceName=", serviceName, ", ifIndex=", ifIndex, ", hostName=", hostName, ":", port, ", A=", a.A):
 							default:
 							}
 
@@ -94,7 +94,7 @@ func TestBrowseAndResolveAndLookup(t *testing.T) {
 							a := rr.(*dns.AAAA)
 							fmt.Println(prefix, "TEST QUERY: serviceName=", serviceName, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA)
 							select {
-							case rrc <- fmt.Sprint("RESULT: serviceName=", serviceName, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA):
+							case rrc <- fmt.Sprint("RESULT: serviceName=", serviceName, ", ifIndex=", ifIndex, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA):
 							default:
 							}
 
