@@ -27,7 +27,7 @@ type AddRecord func(flags int, rr dns.RR)
 Register a service. ctx is the context and is used to cancel a registration.
 ifIndex is the interface to publish the service on, 0 for all interfaces and -1 for localhost.
 serviceName is the name of the service. if left blank the computer name will be used and
-propagated to the ServiceRegistered callback. flags can be 0 or set to NO_AUTO_RENAME. regType is
+propagated to the ServiceRegistered callback. flags can be 0 or set to NoAutoRename. regType is
 the service registration type.
 domain is the domain of the service, usually left blank.
 host is the name of the server being registered. usually left blank for the local machine name.
@@ -40,6 +40,12 @@ that will be associated with this service.
 */
 func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regType, domain, host string, port uint16, txt []string,
 	listener ServiceRegistered, errc ErrCallback) AddRecord {
+
+	if flags != None && flags != NoAutoRename {
+		errc(errBadFlags)
+		return nil
+	}
+
 	if domain == "" {
 		domain = getOwnDomainname()
 	}
@@ -75,7 +81,7 @@ func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regTyp
 	ptrRR.Hdr = dns.RR_Header{Name: fullRegType, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 3200} // TODO: TTL correct?
 	ptrRR.Ptr = fullName
 	fmt.Println("ptrRR=", ptrRR)
-	registrar(ctx, flags, ifIndex, ptrRR)
+	registrar(ctx, Shared, ifIndex, ptrRR)
 
 	srvRR := new(dns.SRV)
 	srvRR.Hdr = dns.RR_Header{Name: fullName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 20} // TODO: TTL correct?
@@ -84,14 +90,14 @@ func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regTyp
 	srvRR.Priority = 0 // TODO: correct?
 	srvRR.Weight = 0   // TODO: correct?
 	fmt.Println("srvRR=", srvRR)
-	registrar(ctx, flags, ifIndex, srvRR)
+	registrar(ctx, Unique, ifIndex, srvRR)
 
 	if txt != nil {
 		txtRR := new(dns.TXT)
 		txtRR.Hdr = dns.RR_Header{Name: fullName, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 3200} // TODO: TTL correct?
 		txtRR.Txt = txt
 		fmt.Println("txtRR=", txtRR)
-		registrar(ctx, flags, ifIndex, txtRR)
+		registrar(ctx, Unique, ifIndex, txtRR)
 	}
 
 	return func(flags int, rr dns.RR) {

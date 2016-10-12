@@ -2,7 +2,6 @@ package dnssd
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/miekg/dns"
@@ -13,7 +12,7 @@ Callback when a record has been registered.
 record is the newly registered record.
 flags is currently unused and will be set to 0.
 */
-type RecordRegistered func(record dns.RR, flags Flags)
+type RecordRegistered func(record dns.RR, flags int)
 
 /*
 Registrar function, will register dns.RR records
@@ -38,31 +37,33 @@ func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) Register
 			return
 		}
 		go func() {
-			rrChan := make(chan dns.RR, 2)
-			question := questionFromRRHeader(record.Header())
-			response := func(flags Flags, ifIndex int, rr dns.RR) {
-				rrChan <- rr
-			}
-			for count := 3; count > 0; count-- {
-				ctxc, _ := context.WithTimeout(ctx, 250*time.Millisecond)
-				cb := &callback{ctx, ifIndex, response}
-				ds.cmdCh <- func() {
-					dnssdlog("DNSSD PROBE=", question)
-					ds.runProbe(ifIndex, question, cb)
+			if flags&Unique != 0 {
+				// Only probe if the record is supposed to be unique
+				rrChan := make(chan dns.RR, 2)
+				question := questionFromRRHeader(record.Header())
+				response := func(flags Flags, ifIndex int, rr dns.RR) {
+					rrChan <- rr
 				}
-
-				select {
-				case <-ctxc.Done():
-					// Timeout of request
-				case rr := <-rrChan:
-					// We have received a response on the record we wish to publish.
-					if rr.String() == record.String() {
-						listener(rr, 0)
-					} else {
-						err := errors.New("Could not publish record, it is in use")
-						errc(err)
+				for count := 3; count > 0; count-- {
+					ctxc, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
+					cb := &callback{ctx, ifIndex, response}
+					ds.cmdCh <- func() {
+						dnssdlog("DNSSD PROBE=", question)
+						ds.runProbe(ifIndex, question, cb)
 					}
-					return
+
+					select {
+					case <-ctxc.Done():
+						// Timeout of request
+						cancel() // Should already be cancelled actually, govet -1!
+					case rr := <-rrChan:
+						// We have received a response on the record we wish to publish.
+						cancel()
+						if rr.String() == record.String() {
+							// TODO: create a new name or report an error.
+						}
+						return
+					}
 				}
 			}
 

@@ -17,12 +17,12 @@ func publishIpAddr(rgr RegisterRecord, name string, ip net.IP) {
 	ip4 := ip.To4()
 	if ip4 != nil {
 		hdr.Rrtype = dns.TypeA
-		rgr(ctx, 0, &dns.A{Hdr: hdr, A: ip4})
+		rgr(ctx, Shared, 0, &dns.A{Hdr: hdr, A: ip4})
 	}
 	ip6 := ip.To16()
 	if ip6 != nil {
 		hdr.Rrtype = dns.TypeAAAA
-		rgr(ctx, 0, &dns.AAAA{Hdr: hdr, AAAA: ip6})
+		rgr(ctx, Shared, 0, &dns.AAAA{Hdr: hdr, AAAA: ip6})
 	}
 
 }

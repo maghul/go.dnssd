@@ -25,7 +25,7 @@ func NoTestRegistrar(t *testing.T) {
 	rr.Hdr = dns.RR_Header{Name: "tuting.local.", Rrtype: dns.TypeA,
 		Class: dns.ClassINET, Ttl: 3600}
 	rr.A = net.IPv4(10, 20, 30, 40)
-	register(ctx, 0, 0, rr)
+	register(ctx, Shared, 0, rr)
 
 	<-d
 }
@@ -46,7 +46,7 @@ func NoTestRegistrarTwice(t *testing.T) {
 	rr.Hdr = dns.RR_Header{Name: "tuting.local.", Rrtype: dns.TypeA,
 		Class: dns.ClassINET, Ttl: 3600}
 	rr.A = net.IPv4(10, 20, 30, 40)
-	register(ctx1, 0, 0, rr)
+	register(ctx1, Shared, 0, rr)
 	<-d
 
 	d = make(chan bool)
@@ -72,7 +72,7 @@ func NoTestRegistrarConflict(t *testing.T) {
 	rr1.Hdr = dns.RR_Header{Name: "tuting.local.", Rrtype: dns.TypeA,
 		Class: dns.ClassINET, Ttl: 3600}
 	rr1.A = net.IPv4(10, 20, 30, 40)
-	register(ctx1, 0, 0, rr1)
+	register(ctx1, Shared, 0, rr1)
 	<-d
 
 	d = make(chan bool)
