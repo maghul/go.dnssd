@@ -2,7 +2,6 @@ package dnssd
 
 import (
 	"testing"
-	"time"
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
@@ -48,15 +47,4 @@ func TestHandleIncomingMessageQuestion(t *testing.T) {
 	testlog("response=", ds.ns.response)
 	assert.NotNil(t, responseMsg)
 	assert.Equal(t, 1, len(responseMsg.Answer))
-}
-
-func TestTimes(t *testing.T) {
-	var t1, t2 time.Time
-	t1 = time.Now()
-
-	tr := getNextTime(t1, t2)
-	assert.Equal(t, t1, tr)
-
-	tr = getNextTime(t2, t1)
-	assert.Equal(t, t1, tr)
 }

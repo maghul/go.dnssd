@@ -2,6 +2,7 @@ package dnssd
 
 import (
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
@@ -45,4 +46,15 @@ func TestMatchQuestions(t *testing.T) {
 	q1 := &dns.Question{Name: "hi_there", Qclass: dns.ClassINET, Qtype: dns.TypePTR}
 	q2 := &dns.Question{Name: "hi_there", Qclass: dns.ClassINET, Qtype: dns.TypePTR}
 	assert.True(t, matchQuestions(q1, q2))
+}
+
+func TestTimes(t *testing.T) {
+	var t1, t2 time.Time
+	t1 = time.Now()
+
+	tr := getNextTime(t1, t2)
+	assert.Equal(t, t1, tr)
+
+	tr = getNextTime(t2, t1)
+	assert.Equal(t, t1, tr)
 }

@@ -2,6 +2,7 @@ package dnssd
 
 import (
 	"fmt"
+	"time"
 	"unicode/utf8"
 
 	"github.com/miekg/dns"
@@ -54,6 +55,19 @@ func threeDigitsToInt(us []rune) byte {
 	cc += (int(us[1]) - 48) * 10
 	cc += int(us[2]) - 48
 	return byte(cc)
+}
+
+func getNextTime(t1, t2 time.Time) time.Time {
+	if t1.IsZero() {
+		return t2
+	}
+	if t2.IsZero() {
+		return t1
+	}
+	if t1.After(t2) {
+		return t1
+	}
+	return t2
 }
 
 func matchQuestionAndRR(q *dns.Question, rr dns.RR) bool {
