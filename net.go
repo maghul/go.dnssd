@@ -173,12 +173,6 @@ func (nss *netserver) shutdown() error {
 	return nil
 }
 
-// Should not be used according to RFC6762, but seems to be used in practice
-func (nss *netserver) sendResponseQuestion(ifIndex int, q *dns.Question) {
-	netlog("sendResponseQuestion: ", q)
-	nss.response.Question = appendQuestion(nss.response.Question, *q)
-}
-
 func (nss *netserver) sendResponseRecord(ifIndex int, rr dns.RR) {
 	nss.response.Answer = appendRecord(nss.response.Answer, rr)
 }

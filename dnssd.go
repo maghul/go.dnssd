@@ -127,7 +127,6 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 		// Check each question find matching answers and remove
 		// any already known by peer.
 		for _, q := range im.msg.Question {
-			answered := false
 			matchedResponses := ds.rrl.matchQuestion(&q)
 		nextMatchedResponse:
 			for _, mr := range matchedResponses {
@@ -143,11 +142,6 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 					ds.nextSendAt(randomDuration(500*time.Millisecond, 100))
 				}
 				ds.ns.sendResponseRecord(im.ifIndex, mr.rr)
-				answered = true
-			}
-			if answered {
-				ds.nextSendAt(500 * time.Millisecond)
-				ds.ns.sendResponseQuestion(im.ifIndex, &q)
 			}
 		}
 	}
