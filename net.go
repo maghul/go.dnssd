@@ -174,32 +174,34 @@ func (nss *netserver) shutdown() error {
 }
 
 func (nss *netserver) sendResponseRecord(ifIndex int, rr dns.RR) {
-	nss.response.Answer = appendRecord(nss.response.Answer, rr)
+	nss.response.Answer = appendRecord(nss.response.Answer, rr, "Response Record=")
 }
 
 func (nss *netserver) sendKnownAnswer(ifIndex int, rr dns.RR) {
-	nss.query.Answer = appendRecord(nss.query.Answer, rr)
+	nss.query.Answer = appendRecord(nss.query.Answer, rr, "Known Answer=")
 }
 
 func (nss *netserver) sendQuestion(ifIndex int, q *dns.Question) {
-	nss.query.Question = appendQuestion(nss.query.Question, q)
+	nss.query.Question = appendQuestion(nss.query.Question, q, "Question=")
 }
 
-func appendQuestion(qs []dns.Question, q *dns.Question) []dns.Question {
+func appendQuestion(qs []dns.Question, q *dns.Question, ref string) []dns.Question {
 	for _, tq := range qs {
 		if matchQuestions(&tq, q) {
 			return qs
 		}
 	}
+	qlog(ref, q.String())
 	return append(qs, *q)
 }
 
-func appendRecord(rs []dns.RR, rr dns.RR) []dns.RR {
+func appendRecord(rs []dns.RR, rr dns.RR, ref string) []dns.RR {
 	for _, trr := range rs {
 		if matchRRs(trr, rr) {
 			return rs
 		}
 	}
+	qlog(ref, rr)
 	return append(rs, rr)
 }
 

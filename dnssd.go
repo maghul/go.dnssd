@@ -127,6 +127,7 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 		// Check each question find matching answers and remove
 		// any already known by peer.
 		for _, q := range im.msg.Question {
+			qlog("Question from", im.from, "=", q.String)
 			matchedResponses := ds.rrl.matchQuestion(&q)
 		nextMatchedResponse:
 			for _, mr := range matchedResponses {
@@ -141,6 +142,7 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 				} else {
 					ds.nextSendAt(randomDuration(500*time.Millisecond, 100))
 				}
+				qlog("Response:", mr.rr)
 				ds.ns.sendResponseRecord(im.ifIndex, mr.rr)
 			}
 		}
@@ -201,7 +203,7 @@ func (ds *dnssd) runProbe(ifIndex int, q *dns.Question, cb *callback) {
 func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 	ifIndex := im.ifIndex
 	for _, rr := range rrs {
-
+		qlog("Record from=", im.from, "=", rr)
 		cacheFlush := rr.Header().Class&0x8000 != 0
 		flags := Shared
 		if cacheFlush {
