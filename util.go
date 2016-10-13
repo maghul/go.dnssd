@@ -2,6 +2,7 @@ package dnssd
 
 import (
 	"fmt"
+	"math/rand"
 	"time"
 	"unicode/utf8"
 
@@ -90,4 +91,14 @@ func matchQuestions(q1, q2 *dns.Question) bool {
 	return (q1.Qtype == q2.Qtype) &&
 		(q1.Qclass == q2.Qclass) &&
 		(q1.Name == q2.Name)
+}
+
+// Return a randomDuraion of +/- <variation> percent of the given duration.
+func randomDuration(d time.Duration, variation int) time.Duration {
+	ud := int64(d)
+	vd := rand.Int63n(ud)
+	vd *= int64(variation)
+	vd /= 100
+	return time.Duration(vd)
+
 }
