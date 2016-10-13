@@ -76,9 +76,12 @@ func makeNetserver() (*netserver, error) {
 
 	// Join multicast groups to receive announcements
 	p1 := ipv4.NewPacketConn(ipv4conn)
-	p2 := ipv6.NewPacketConn(ipv6conn)
 	p1.SetControlMessage(ipv4.FlagInterface, true)
+	//	p1.SetMulticastLoopback(false)
+	p2 := ipv6.NewPacketConn(ipv6conn)
 	p2.SetControlMessage(ipv6.FlagInterface, true)
+	//	p2.SetMulticastLoopback(false)
+
 	if iface != nil {
 		if err := p1.JoinGroup(iface, &net.UDPAddr{IP: mdnsGroupIPv4}); err != nil {
 			return nil, err
@@ -144,7 +147,10 @@ func (nss *netserver) _recv(readSocket func(buf []byte) (n, ifIndex int, from ne
 			netlog("[ERR] dnssd: Failed to unpack packet: ", err)
 			continue
 		}
-		nss.msgCh <- &incomingMsg{&msg, ifIndex, from}
+		if !isFromLocalHost(ifIndex, from) {
+			netlog("RX: from=", from, ", msg=", msg.String())
+			nss.msgCh <- &incomingMsg{&msg, ifIndex, from}
+		}
 	}
 }
 
@@ -214,4 +220,41 @@ func (nss *netserver) sendMessage(msgp **dns.Msg) error {
 		nss.ipv6pconn.WriteTo(buf, nil, ipv6Addr)
 	}
 	return nil
+}
+
+func isFromLocalHost(ifIndex int, faddr net.Addr) bool {
+	var fip net.IP
+
+	switch v := faddr.(type) {
+	case *net.IPNet:
+		fip = v.IP
+	case *net.IPAddr:
+		fip = v.IP
+	case *net.UDPAddr:
+		fip = v.IP
+	}
+
+	iface, err := net.InterfaceByIndex(ifIndex)
+	if err != nil {
+		panic(fmt.Sprint("Internal Error: ifIndex==", ifIndex, " was unknown: ", err))
+	}
+	addresses, err := iface.Addrs()
+	if err != nil {
+		panic(fmt.Sprint("Internal Error: ifIndex==", ifIndex, " could not get addresses: ", err))
+	}
+
+	for _, addr := range addresses {
+		var ip net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		}
+		if ip.Equal(fip) {
+			return true
+		}
+	}
+
+	return false
 }

@@ -98,6 +98,10 @@ func (ds *dnssd) checkRunningEvents() time.Time {
 }
 
 func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
+	if isFromLocalHost(im.ifIndex, im.from) {
+		return
+	}
+
 	if im.msg.Response {
 		ds.handleResponseRecords(im, im.msg.Answer)
 		ds.handleResponseRecords(im, im.msg.Ns)
