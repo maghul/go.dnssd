@@ -52,13 +52,21 @@ func (aa *answers) size() int {
 	return len(aa.cache)
 }
 
+func (aa *answers) iterateAnswersForQuestion(q *dns.Question, f func(a *answer)) {
+	for _, a := range aa.cache {
+		if matchQuestionAndRR(q, a.rr) {
+			f(a)
+		}
+	}
+}
+
 func (aa *answers) matchQuestion(q *dns.Question) []*answer {
 	var matchedAnswers []*answer
-	for _, a := range aa.cache {
+	aa.iterateAnswersForQuestion(q, func(a *answer) {
 		if matchQuestionAndRR(q, a.rr) {
 			matchedAnswers = append(matchedAnswers, a)
 		}
-	}
+	})
 	return matchedAnswers
 }
 

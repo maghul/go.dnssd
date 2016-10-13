@@ -134,19 +134,22 @@ func (ds *dnssd) publish(ifIndex int, a *answer) {
 	ds.ctxn.addContextForNotifications(a.ctx)
 	ds.rrl.add(a)
 	ds.ns.sendResponseRecord(ifIndex, a.rr)
+
+	cq := ds.cs.findQuestionFromRR(a.rr)
+	if cq != nil {
+		cq.respond(a)
+	}
 }
 
 // Check all cached RR entries and send a question for more
 // data.
 func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
-	matchedAnswers := ds.rrc.matchQuestion(q)
-
 	// Find a currently running query and attach this command.
 	cq := ds.cs.findQuestion(q)
 	ds.ctxn.addContextForNotifications(cb.ctx)
 
 	// Check the cache for all entries matching and respond with these.
-	for _, a := range matchedAnswers {
+	f := func(a *answer) {
 		dnssdlog("ANSWER ", a)
 		cb.respond(a)
 		if cq == nil {
@@ -154,6 +157,8 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 			ds.ns.sendKnownAnswer(ifIndex, a.rr)
 		}
 	}
+	ds.rrc.iterateAnswersForQuestion(q, f)
+	ds.rrl.iterateAnswersForQuestion(q, f)
 
 	if cq == nil {
 		cq = ds.cs.makeQuestion(q)
@@ -195,7 +200,7 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 			// We have a challenge record.
 			if challenge.flags&Unique != 0 {
 				dnssdlog("CHALLENGE!, ", rr, challenge)
-				cq.respond(challenge)
+				ds.ns.sendResponseRecord(ifIndex, challenge.rr)
 			}
 		}
 	}
