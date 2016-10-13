@@ -85,7 +85,113 @@ func TestAnswerString(t *testing.T) {
 
 	a1 := makeTestPtrAnswer(2, "hi_there", "wazzup", 3200)
 	a1.added = now
-	a1s := a1.String()
-	expected := fmt.Sprint("Answer{if=2, added=", now, ", rr=hi_there\t3200\tIN\tPTR\twazzup}")
-	assert.Equal(t, expected, a1s)
+	a1.flags = Shared
+	expected := fmt.Sprint("Answer{if=2, added=", now, ", Shared, rr=hi_there\t3200\tIN\tPTR\twazzup}")
+	assert.Equal(t, expected, a1.String())
+
+	a1.flags = Unique
+	expected = fmt.Sprint("Answer{if=2, added=", now, ", Unique, rr=hi_there\t3200\tIN\tPTR\twazzup}")
+	assert.Equal(t, expected, a1.String())
+}
+
+func TestAnswerSharedGetNextTime(t *testing.T) {
+	now := time.Now()
+
+	a1 := makeTestPtrAnswer(2, "hi_there", "wazzup", 1000)
+	a1.added = now
+	a1.flags = Shared
+
+	expected := now.Add(800 * time.Second)
+	nt, keep := a1.getNextCheckTime()
+	assert.True(t, keep)
+	assert.Equal(t, expected, nt)
+
+	a1.requeried++
+	expected = now.Add(850 * time.Second)
+	nt, keep = a1.getNextCheckTime()
+	assert.True(t, keep)
+	assert.Equal(t, expected, nt)
+
+	a1.requeried++
+	expected = now.Add(900 * time.Second)
+	nt, keep = a1.getNextCheckTime()
+	assert.True(t, keep)
+	assert.Equal(t, expected, nt)
+
+	a1.requeried++
+	expected = now.Add(950 * time.Second)
+	nt, keep = a1.getNextCheckTime()
+	assert.True(t, keep)
+	assert.Equal(t, expected, nt)
+
+	a1.requeried++
+	nt, keep = a1.getNextCheckTime()
+	assert.False(t, keep)
+}
+
+func TestAnswerUniqueGetNextTime(t *testing.T) {
+	now := time.Now()
+
+	a1 := makeTestPtrAnswer(2, "hi_there", "wazzup", 1000)
+	a1.added = now
+	a1.flags = Unique
+
+	expected := now.Add(800 * time.Second)
+	nt, keep := a1.getNextCheckTime()
+	assert.True(t, keep)
+	assert.Equal(t, expected, nt)
+
+	a1.requeried++
+	nt, keep = a1.getNextCheckTime()
+	assert.False(t, keep)
+}
+
+func testRunFindOldAnswers(aa *answers) (req, rem *answer, nt time.Time) {
+	nt = aa.findOldAnswers(func(a *answer) {
+		req = a
+	}, func(a *answer) {
+		rem = a
+	})
+	return req, rem, nt
+}
+func TestAnswerDoRequery(t *testing.T) {
+	now := time.Now()
+	aa := makeAnswers()
+
+	a1 := makeTestPtrAnswer(2, "hi_there", "wazzup", 1000)
+	aa.add(a1)
+	a1.added = now.Add(-801 * time.Second)
+	req, rem, _ := testRunFindOldAnswers(aa)
+
+	assert.Equal(t, a1, req)
+	assert.Nil(t, rem)
+}
+
+func TestAnswerDoRemoved(t *testing.T) {
+	now := time.Now()
+	aa := makeAnswers()
+
+	a1 := makeTestPtrAnswer(2, "hi_there", "wazzup", 1000)
+	aa.add(a1)
+	a1.added = now.Add(-1001 * time.Second)
+	a1.requeried = 5
+	req, rem, _ := testRunFindOldAnswers(aa)
+	assert.Equal(t, a1, rem)
+	assert.Nil(t, req)
+}
+
+func TestAnswerDoNothing(t *testing.T) {
+	now := time.Now()
+	aa := makeAnswers()
+
+	a1 := makeTestPtrAnswer(2, "hi_there", "wazzup", 1000)
+	aa.add(a1)
+	a1.added = now
+
+	req, rem, nt := testRunFindOldAnswers(aa)
+	assert.Nil(t, rem)
+	assert.Nil(t, req)
+
+	expected := now.Add(800 * time.Second)
+	assert.Equal(t, expected, nt)
 }

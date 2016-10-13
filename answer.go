@@ -107,10 +107,10 @@ func (aa *answers) findOldAnswers(requery func(a *answer), remove func(a *answer
 			remove(a)
 			continue
 		}
-		rt := a.getNextCheckTime()
+		rt, doRequery := a.getNextCheckTime()
 
 		if now.After(rt) {
-			if a.requeried < 2 {
+			if doRequery {
 				a.requeried++
 				requery(a)
 			} else {
@@ -131,18 +131,34 @@ func (aa *answers) findOldAnswers(requery func(a *answer), remove func(a *answer
 	return nextTime
 }
 
-func (a *answer) getNextCheckTime() time.Time {
+func (a *answer) getNextCheckTime() (time.Time, bool) {
 	rt := a.added
-	switch a.requeried {
-	case 0: // At 50% of TTL
-		rt = rt.Add(a.ttl / 2)
-	case 1: // At 80% of TTL
-		rt = rt.Add((a.ttl * 4) / 5)
-	case 2:
-		rt = rt.Add(a.ttl)
+	if a.flags&Unique != 0 {
+		// Unique records should only be requried once
+		switch a.requeried {
+		case 0: // At 80% of TTL
+			rt = rt.Add((a.ttl * 80) / 100)
+		case 1: // At 80% of TTL
+			rt = rt.Add(a.ttl)
 
+		}
+		return rt, a.requeried < 1
+	} else {
+		switch a.requeried {
+		case 0: // At 80% of TTL
+			rt = rt.Add((a.ttl * 80) / 100)
+		case 1: // At 80% of TTL
+			rt = rt.Add((a.ttl * 85) / 100)
+		case 2:
+			rt = rt.Add((a.ttl * 90) / 100)
+		case 3:
+			rt = rt.Add((a.ttl * 95) / 100)
+		case 4:
+			rt = rt.Add(a.ttl)
+
+		}
+		return rt, a.requeried < 4
 	}
-	return rt
 }
 
 func (a *answer) isClosed() bool {

@@ -182,16 +182,14 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 	for _, rr := range rrs {
 
 		cacheFlush := rr.Header().Class&0x8000 != 0
+		flags := Shared
 		if cacheFlush {
-			dnssdlog("DNSSD FLUSH! ", ifIndex, ", RR=", rr)
-		} else {
-			dnssdlog("DNSSD        ", ifIndex, ", RR=", rr)
-
+			flags = Unique
 		}
 		rr.Header().Class &= 0x7fff
 		// TODO: Is this a response or a challenge?
 		cq := ds.cs.findQuestionFromRR(rr)
-		a, isNew := ds.rrc.addRecord(nil, None, ifIndex, rr)
+		a, isNew := ds.rrc.addRecord(nil, flags, ifIndex, rr)
 		if cq != nil && isNew {
 			cq.respond(a)
 		}
