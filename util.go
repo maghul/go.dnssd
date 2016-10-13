@@ -71,8 +71,18 @@ func getNextTime(t1, t2 time.Time) time.Time {
 	return t2
 }
 
+/*
+The determination of whether a given record answers a given question
+is made using the standard DNS rules: the record name must match the
+question name, the record rrtype must match the question qtype unless
+the qtype is "ANY" (255) or the rrtype is "CNAME" (5), and the record
+rrclass must match the question qclass unless the qclass is "ANY"
+(255). As with Unicast DNS, generally only DNS class 1 ("Internet")
+is used, but should client software use classes other than 1, the
+matching rules described above MUST be used.
+*/
 func matchQuestionAndRR(q *dns.Question, rr dns.RR) bool {
-	return (q.Qtype == rr.Header().Rrtype) &&
+	return (q.Qtype == dns.TypeANY || q.Qtype == rr.Header().Rrtype || rr.Header().Rrtype == dns.TypeCNAME) &&
 		(q.Qclass == rr.Header().Class) &&
 		(q.Name == rr.Header().Name)
 }
