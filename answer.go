@@ -33,7 +33,9 @@ func makeAnswers() *answers {
 
 func (aa *answers) addRecord(ctx context.Context, flags Flags, ifIndex int, rr dns.RR) (*answer, bool) {
 	ttl := time.Second * time.Duration(rr.Header().Ttl)
-	ttl += randomDuration(ttl, 2)
+	if ttl > 0 {
+		ttl += randomDuration(ttl, 2)
+	}
 	a := &answer{ctx, time.Now(), ttl, flags, 0, ifIndex, rr}
 	return a, aa.add(a)
 }
