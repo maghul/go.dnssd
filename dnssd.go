@@ -11,13 +11,14 @@ import (
 )
 
 type dnssd struct {
-	ns    *netserver
-	cs    *questions
-	cmdCh chan func()
-	rrc   *answers
-	rrl   *answers
-	ctxn  *contextNotifier
-	cn    chan context.Context
+	ns       *netserver
+	cs       *questions
+	cmdCh    chan func()
+	rrc      *answers
+	rrl      *answers
+	ctxn     *contextNotifier
+	cn       chan context.Context
+	nextSend time.Time
 }
 
 var ds *dnssd
@@ -40,22 +41,48 @@ func getDnssd() *dnssd {
 	return ds
 }
 
+func (ds *dnssd) nextSendAt(t time.Duration) {
+	nt := time.Now().Add(t)
+	if ds.nextSend.IsZero() || ds.nextSend.After(nt) {
+		ds.nextSend = nt
+	}
+}
+
 func (ds *dnssd) processing() {
-	t := time.NewTimer(10 * time.Millisecond)
-	t.Stop()
+	checkTimer := time.NewTimer(10 * time.Millisecond)
+	sendTimer := time.NewTimer(10 * time.Millisecond)
+
 	var nt time.Time
 	var st time.Time
-outer:
+
+	var nextSendTime time.Time
+
 	for {
 
+		now := time.Now()
 		if nt.IsZero() {
-			t.Stop()
+			checkTimer.Stop()
 		} else if st != nt {
 			st = nt
 			dnssdlog("Next Timed event occurs at ", st)
-			now := time.Now()
-			t.Reset(st.Sub(now))
+			checkTimer.Reset(st.Sub(now))
 		}
+
+		if ds.nextSend.IsZero() {
+			sendTimer.Stop()
+		} else {
+			if now.After(ds.nextSend) {
+				// Dont set an antedated timer...
+				nextSendTime = time.Time{}
+				ds.nextSend = nextSendTime
+				ds.ns.sendPending()
+			} else if nextSendTime.IsZero() || nextSendTime.After(ds.nextSend) {
+				nextSendTime = ds.nextSend
+				delay := nextSendTime.Sub(now)
+				sendTimer.Reset(delay)
+			}
+		}
+
 		select {
 		case cmd := <-ds.cmdCh:
 			cmd()
@@ -63,21 +90,11 @@ outer:
 			ds.handleIncomingMessage(im)
 		case ctx := <-ds.cn:
 			nt = ds.handleClosedContext(ctx)
-		case <-t.C:
+		case <-checkTimer.C:
 			nt = ds.checkRunningEvents()
-		}
-		for {
-			select {
-			case cmd := <-ds.cmdCh:
-				cmd()
-			case im := <-ds.ns.msgCh:
-				ds.handleIncomingMessage(im)
-			case ctx := <-ds.cn:
-				nt = ds.handleClosedContext(ctx)
-			default:
-				ds.ns.sendPending()
-				continue outer
-			}
+		case <-sendTimer.C:
+			nextSendTime = time.Time{}
+			ds.ns.sendPending()
 		}
 	}
 }
@@ -120,10 +137,16 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 						continue nextMatchedResponse
 					}
 				}
+				if mr.flags&Unique != 0 {
+					ds.nextSendAt(0)
+				} else {
+					ds.nextSendAt(randomDuration(500*time.Millisecond, 100))
+				}
 				ds.ns.sendResponseRecord(im.ifIndex, mr.rr)
 				answered = true
 			}
 			if answered {
+				ds.nextSendAt(500 * time.Millisecond)
 				ds.ns.sendResponseQuestion(im.ifIndex, &q)
 			}
 		}
@@ -134,6 +157,7 @@ func (ds *dnssd) publish(ctx context.Context, flags Flags, ifIndex int, record d
 	ds.ctxn.addContextForNotifications(ctx)
 	a, _ := ds.rrl.addRecord(ctx, flags, ifIndex, record)
 	ds.rrl.add(a)
+	ds.nextSendAt(10 * time.Millisecond)
 	ds.ns.sendResponseRecord(ifIndex, a.rr)
 
 	cq := ds.cs.findQuestionFromRR(a.rr)
@@ -155,6 +179,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 		cb.respond(a)
 		if cq == nil {
 			// Only add known answers if we intend to ask a question
+			ds.nextSendAt(500 * time.Millisecond)
 			ds.ns.sendKnownAnswer(ifIndex, a.rr)
 		}
 	}
@@ -164,6 +189,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 	if cq == nil {
 		cq = ds.cs.makeQuestion(q)
 		cq.attach(cb)
+		ds.nextSendAt(10 * time.Millisecond)
 		ds.ns.sendQuestion(ifIndex, q)
 	} else {
 		cq.attach(cb)
@@ -174,6 +200,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 func (ds *dnssd) runProbe(ifIndex int, q *dns.Question, cb *callback) {
 	cq := ds.cs.makeQuestion(q)
 	cq.attach(cb)
+	ds.nextSendAt(10 * time.Millisecond)
 	ds.ns.sendQuestion(ifIndex, q)
 }
 
@@ -198,6 +225,7 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 		if ok {
 			// We have a challenge record.
 			if challenge.flags&Unique != 0 {
+				ds.nextSendAt(0)
 				dnssdlog("CHALLENGE!, ", rr, challenge)
 				ds.ns.sendResponseRecord(ifIndex, challenge.rr)
 			}
@@ -214,10 +242,12 @@ func (ds *dnssd) updateTTLOnPublishedRecords() time.Time {
 		a.added = time.Now()
 		a.requeried = 0
 		dnssdlog("SENDING REPUBLISH..", a.rr)
+		ds.nextSendAt(100 * time.Millisecond)
 		ds.ns.sendResponseRecord(a.ifIndex, a.rr)
 	}, func(a *answer) {
 		a.rr.Header().Ttl = 0
 		dnssdlog("SENDING UNPUBLISH..", a.rr)
+		ds.nextSendAt(100 * time.Millisecond)
 		ds.ns.sendResponseRecord(a.ifIndex, a.rr)
 	})
 }
@@ -231,6 +261,7 @@ func (ds *dnssd) requeryOldAnswers() time.Time {
 		// Requery the record if we have a question for it...
 		q := ds.cs.findQuestionFromRR(a.rr)
 		if q != nil && q.isActive() {
+			ds.nextSendAt(100 * time.Millisecond)
 			ds.ns.sendQuestion(a.ifIndex, q.q)
 		}
 	}, func(a *answer) {
