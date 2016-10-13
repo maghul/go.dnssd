@@ -46,7 +46,7 @@ func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) Register
 				}
 				for count := 3; count > 0; count-- {
 					ctxc, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
-					cb := &callback{ctx, ifIndex, response}
+					cb := makeCallback("probe", record, ctxc, ifIndex, response)
 					ds.cmdCh <- func() {
 						dnssdlog("DNSSD PROBE=", question)
 						ds.runProbe(ifIndex, question, cb)

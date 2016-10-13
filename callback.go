@@ -2,10 +2,12 @@ package dnssd
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
 type callback struct {
+	ref     string
 	ctx     context.Context
 	ifIndex int
 	call    QueryAnswered
@@ -13,6 +15,7 @@ type callback struct {
 
 var callbackChan chan func() = make(chan func())
 var callbackThreads int = 0
+var callbackIndex = 0
 
 func callbackThread(num int) {
 	for {
@@ -20,6 +23,15 @@ func callbackThread(num int) {
 		dnssdlog("CALL: #", num)
 		call()
 	}
+}
+
+func makeCallback(ref string, tag interface{}, ctx context.Context, ifIndex int, call QueryAnswered) *callback {
+	callbackIndex++
+	return &callback{fmt.Sprint(ref, "#", callbackIndex, tag), ctx, ifIndex, call}
+}
+
+func (cb *callback) String() string {
+	return fmt.Sprint("CALLBACK:closed=", cb.isClosed(), ", ref=", cb.ref)
 }
 
 func (cb *callback) isClosed() bool {
@@ -41,6 +53,7 @@ func (cb *callback) respond(a *answer) bool {
 		flags = RecordAdded
 	}
 	f := func() {
+		dnssdlog("RUN CALLBACK:", cb)
 		cb.call(flags, a.ifIndex, a.rr)
 	}
 
