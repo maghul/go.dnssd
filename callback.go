@@ -37,7 +37,7 @@ func (cb *callback) respond(a *answer) bool {
 	}
 
 	flags := None
-	if a.rr.Header().Ttl > 0 {
+	if a.ttl > 0 {
 		flags = RecordAdded
 	}
 	f := func() {

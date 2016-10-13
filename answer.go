@@ -16,6 +16,7 @@ type answers struct {
 type answer struct {
 	ctx       context.Context // Only used by published RR entries.
 	added     time.Time       // Used to count expiry from TTL
+	ttl       time.Duration
 	flags     Flags
 	requeried int
 	ifIndex   int
@@ -29,8 +30,9 @@ func matchAnswers(a1, a2 *answer) bool {
 func makeAnswers() *answers {
 	return &answers{}
 }
-func (aa *answers) addRecord(ifIndex int, rr dns.RR) (*answer, bool) {
-	a := &answer{nil, time.Now(), None, 0, ifIndex, rr}
+func (aa *answers) addRecord(ctx context.Context, flags Flags, ifIndex int, rr dns.RR) (*answer, bool) {
+	ttl := time.Second * time.Duration(rr.Header().Ttl)
+	a := &answer{ctx, time.Now(), ttl, flags, 0, ifIndex, rr}
 	return a, aa.add(a)
 }
 
@@ -129,14 +131,13 @@ func (aa *answers) findOldAnswers(requery func(a *answer), remove func(a *answer
 
 func (a *answer) getNextCheckTime() time.Time {
 	rt := a.added
-	ttl := time.Second * time.Duration(a.rr.Header().Ttl)
 	switch a.requeried {
 	case 0: // At 50% of TTL
-		rt = rt.Add(ttl / 2)
+		rt = rt.Add(a.ttl / 2)
 	case 1: // At 80% of TTL
-		rt = rt.Add((ttl * 4) / 5)
+		rt = rt.Add((a.ttl * 4) / 5)
 	case 2:
-		rt = rt.Add(ttl)
+		rt = rt.Add(a.ttl)
 
 	}
 	return rt

@@ -130,8 +130,9 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 	}
 }
 
-func (ds *dnssd) publish(ifIndex int, a *answer) {
-	ds.ctxn.addContextForNotifications(a.ctx)
+func (ds *dnssd) publish(ctx context.Context, flags Flags, ifIndex int, record dns.RR) {
+	ds.ctxn.addContextForNotifications(ctx)
+	a, _ := ds.rrl.addRecord(ctx, flags, ifIndex, record)
 	ds.rrl.add(a)
 	ds.ns.sendResponseRecord(ifIndex, a.rr)
 
@@ -190,7 +191,7 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 		rr.Header().Class &= 0x7fff
 		// TODO: Is this a response or a challenge?
 		cq := ds.cs.findQuestionFromRR(rr)
-		a, isNew := ds.rrc.addRecord(ifIndex, rr)
+		a, isNew := ds.rrc.addRecord(nil, None, ifIndex, rr)
 		if cq != nil && isNew {
 			cq.respond(a)
 		}
