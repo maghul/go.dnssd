@@ -16,7 +16,7 @@ type netserver struct {
 	ipv6conn *net.UDPConn
 
 	closed    bool
-	cmdCh     chan netCommand
+	cmdCh     chan *command
 	msgCh     chan *incomingMsg
 	closeLock sync.Mutex
 }
@@ -106,8 +106,8 @@ func makeNetserver(iface *net.Interface) (*netserver, error) {
 	}
 
 	msgCh := make(chan *incomingMsg, 32)
-
-	return &netserver{ipv4conn: ipv4conn, ipv6conn: ipv6conn, cmdCh: make(chan netCommand), msgCh: msgCh}, nil
+	cmdCh := make(chan *command, 32)
+	return &netserver{ipv4conn: ipv4conn, ipv6conn: ipv6conn, cmdCh: cmdCh, msgCh: msgCh}, nil
 }
 
 func (nss *netserver) startReceiving() {
@@ -160,6 +160,7 @@ func (nss *netserver) parsePacket(packet []byte, from net.Addr) error {
 		log.Printf("[ERR] dnssd: Failed to unpack packet: %v", err)
 		return err
 	}
+	fmt.Println("RX", msg)
 	nss.msgCh <- &incomingMsg{&msg, from}
 	//	return s.handleQuery(&msg, from)
 	return nil

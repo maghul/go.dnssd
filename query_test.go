@@ -10,11 +10,15 @@ import (
 )
 
 func TestQuery1(t *testing.T) {
-	rrc := make(chan *dns.RR)
+	rrc := make(chan dns.RR)
 	ctx := context.Background()
-	Query(ctx, 0, 0, "turner.local", dns.TypeA, dns.ClassINET,
-		func(err error, flags Flags, ifIndex int, rr *dns.RR) {
-			rrc <- rr
+	Query(ctx, 0, 0, "turner.local.", dns.TypeA, dns.ClassINET,
+		func(err error, flags Flags, ifIndex int, rr dns.RR) {
+			if err != nil {
+				fmt.Println("TestQuery1 err=", err)
+			} else {
+				rrc <- rr
+			}
 		})
 	assert.NotNil(t, ctx)
 	for ii := 0; ii < 10; ii++ {
