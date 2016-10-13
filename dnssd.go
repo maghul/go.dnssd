@@ -185,6 +185,15 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 		if cq != nil && isNew {
 			cq.respond(a)
 		}
+
+		challenge, ok := ds.rrl.findAnswerFromRR(rr)
+		if ok {
+			// We have a challenge record.
+			if challenge.flags&Unique != 0 {
+				dnssdlog("CHALLENGE!, ", rr, challenge)
+				cq.respond(challenge)
+			}
+		}
 	}
 }
 

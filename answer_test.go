@@ -13,7 +13,7 @@ func makeTestPtrAnswer(ifIndex int, name, ptr string, ttl uint32) *answer {
 	ptr1 := new(dns.PTR)
 	ptr1.Hdr = dns.RR_Header{Name: name, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: ttl} // TODO: TTL correct?
 	ptr1.Ptr = ptr
-	return &answer{nil, time.Now(), 0, ifIndex, ptr1}
+	return &answer{nil, time.Now(), None, 0, ifIndex, ptr1}
 }
 
 func makeTestPtrQuestion(name string) *question {

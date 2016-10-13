@@ -15,7 +15,8 @@ type answers struct {
 
 type answer struct {
 	ctx       context.Context // Only used by published RR entries.
-	added     time.Time
+	added     time.Time       // Used to count expiry from TTL
+	flags     Flags
 	requeried int
 	ifIndex   int
 	rr        dns.RR
@@ -29,7 +30,7 @@ func makeAnswers() *answers {
 	return &answers{}
 }
 func (aa *answers) addRecord(ifIndex int, rr dns.RR) (*answer, bool) {
-	a := &answer{nil, time.Now(), 0, ifIndex, rr}
+	a := &answer{nil, time.Now(), None, 0, ifIndex, rr}
 	return a, aa.add(a)
 }
 
@@ -50,6 +51,7 @@ func (aa *answers) add(a *answer) bool {
 func (aa *answers) size() int {
 	return len(aa.cache)
 }
+
 func (aa *answers) matchQuestion(q *dns.Question) []*answer {
 	var matchedAnswers []*answer
 	for _, a := range aa.cache {
@@ -60,8 +62,24 @@ func (aa *answers) matchQuestion(q *dns.Question) []*answer {
 	return matchedAnswers
 }
 
+func (aa *answers) findAnswerFromRR(rr dns.RR) (*answer, bool) {
+	for _, a := range aa.cache {
+		if matchRRHeader(rr.Header(), a.rr.Header()) {
+			return a, true
+		}
+	}
+	return nil, false
+}
+
 func (a *answer) String() string {
-	return fmt.Sprint("Answer{if=", a.ifIndex, ", added=", a.added, ", rr=", a.rr, "}")
+	s := ""
+	if a.flags&Shared != 0 {
+		s = ", Shared"
+	}
+	if a.flags&Unique != 0 {
+		s = ", Unique"
+	}
+	return fmt.Sprint("Answer{if=", a.ifIndex, ", added=", a.added, s, ", rr=", a.rr, "}")
 }
 
 // Look through the cache and requery answers which are
