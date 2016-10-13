@@ -175,19 +175,38 @@ func (nss *netserver) shutdown() error {
 
 // Should not be used according to RFC6762, but seems to be used in practice
 func (nss *netserver) sendResponseQuestion(ifIndex int, q *dns.Question) {
-	nss.response.Question = append(nss.response.Question, *q)
+	netlog("sendResponseQuestion: ", q)
+	nss.response.Question = appendQuestion(nss.response.Question, *q)
 }
 
 func (nss *netserver) sendResponseRecord(ifIndex int, rr dns.RR) {
-	nss.response.Answer = append(nss.response.Answer, rr)
+	nss.response.Answer = appendRecord(nss.response.Answer, rr)
 }
 
 func (nss *netserver) sendKnownAnswer(ifIndex int, rr dns.RR) {
-	nss.query.Answer = append(nss.query.Answer, rr)
+	nss.query.Answer = appendRecord(nss.query.Answer, rr)
 }
 
 func (nss *netserver) sendQuestion(ifIndex int, q *dns.Question) {
-	nss.query.Question = append(nss.query.Question, *q)
+	nss.query.Question = appendQuestion(nss.query.Question, q)
+}
+
+func appendQuestion(qs []dns.Question, q *dns.Question) []dns.Question {
+	for _, tq := range qs {
+		if matchQuestions(&tq, q) {
+			return qs
+		}
+	}
+	return append(qs, *q)
+}
+
+func appendRecord(rs []dns.RR, rr dns.RR) []dns.RR {
+	for _, trr := range rs {
+		if matchRRs(trr, rr) {
+			return rs
+		}
+	}
+	return append(rs, rr)
 }
 
 func (nss *netserver) sendPending() error {
