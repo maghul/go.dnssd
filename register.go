@@ -67,21 +67,24 @@ func Register(ctx context.Context, flags Flags, ifIndex int, serviceName, regTyp
 	target := fmt.Sprintf("%s.%s.", host, domain)
 
 	recordsRegistered := uint8(0)
-	registrar := CreateRecordRegistrar(func(record dns.RR, flags int) {
+	var registrar RegisterRecord
+	registrar = CreateRecordRegistrar(func(record dns.RR, flags int) {
 		fmt.Println("REGISTER: rr=", record)
 		recordsRegistered = recordsRegistered | flag(record)
+		if recordsRegistered == 6 {
+			// TXT and SRV are established. send the PTR
+			ptrRR := new(dns.PTR)
+			ptrRR.Hdr = dns.RR_Header{Name: fullRegType, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 3200} // TODO: TTL correct?
+			ptrRR.Ptr = fullName
+			fmt.Println("ptrRR=", ptrRR)
+			registrar(ctx, Shared, ifIndex, ptrRR)
+		}
 		if recordsRegistered == 7 {
 			listener(0, serviceName, regType, domain)
 		}
 	}, func(err error) {
 		errc(err)
 	})
-
-	ptrRR := new(dns.PTR)
-	ptrRR.Hdr = dns.RR_Header{Name: fullRegType, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: 3200} // TODO: TTL correct?
-	ptrRR.Ptr = fullName
-	fmt.Println("ptrRR=", ptrRR)
-	registrar(ctx, Shared, ifIndex, ptrRR)
 
 	srvRR := new(dns.SRV)
 	srvRR.Hdr = dns.RR_Header{Name: fullName, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: 20} // TODO: TTL correct?
