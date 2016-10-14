@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func NoTestRegistrar(t *testing.T) {
+func TestRegistrar(t *testing.T) {
 	d := make(chan bool)
 
 	register := CreateRecordRegistrar(func(record dns.RR, flags int) {

@@ -3,6 +3,7 @@ package dnssd
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/miekg/dns"
@@ -91,8 +92,8 @@ func (nss *netservers) addInterface(iface net.Interface) (err error) {
 }
 
 func (nss *netservers) sendMessage(msg *dns.Msg) error {
+	nss.log("sendMessage", msg)
 	for _, ns := range nss.servers {
-		ns.log("netservers::sendMessage")
 		ns.sendMessage(msg)
 	}
 	return nil
@@ -201,10 +202,9 @@ func (nss *netserver) shutdown() error {
 
 // Pack the dns.Msg and write to available connections (multicast)
 func (nss *netserver) sendMessage(msg *dns.Msg) error {
-	nss.log("sendMessage", msg)
 	buf, err := msg.Pack()
 	if err != nil {
-		nss.log("Failed to pack message!")
+		nss.log("Failed to pack message! msg=", msg)
 		return err
 	}
 	if nss.ipv4conn != nil {
@@ -216,7 +216,35 @@ func (nss *netserver) sendMessage(msg *dns.Msg) error {
 	return nil
 }
 
+func (*netservers) log(msg ...interface{}) {
+	fmt.Print("NETSERVERS")
+	fmt.Println(msg)
+}
+
 func (nss *netserver) log(msg ...interface{}) {
-	//fmt.Print(s.iface.Name)
-	//fmt.Println(msg)
+	fmt.Print(nss.iface.Name)
+	fmt.Println(msg)
+}
+
+func getInterface(ifIndex int) *net.Interface {
+	switch ifIndex {
+	case 0:
+		return nil
+	case -1:
+		interfaces, _ := net.Interfaces()
+		for _, iface := range interfaces {
+			if strings.HasPrefix(iface.Name, "lo") {
+				return &iface
+			}
+		}
+	default:
+		interfaces, _ := net.Interfaces()
+		return &interfaces[ifIndex]
+		// TODO: Maybe use an error here instead of panicing on out-of-bounds.
+	}
+	return nil
+}
+
+func getOwnDomainname() string {
+	return "local" // TODO: fix?
 }

@@ -35,6 +35,9 @@ response is a function that will be called when a service has been resolved. May
 several times. errc is an error callback.
 */
 func Resolve(ctx context.Context, flags Flags, ifIndex int, serviceName, regType, domain string, response ServiceResolved, errc ErrCallback) {
+	if domain == "" {
+		domain = getOwnDomainname()
+	}
 	qname := ConstructFullName(serviceName, regType, domain)
 	var srv *dns.SRV
 	var txt *dns.TXT
