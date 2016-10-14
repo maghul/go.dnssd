@@ -34,25 +34,38 @@ func getDnssd() *dnssd {
 }
 
 func (ds *dnssd) processing() {
+
+outer:
 	for {
 		select {
 		case cmd := <-ds.cmdCh:
 			cmd()
 		case im := <-ds.ns.msgCh:
-			ds.handleResponseRecords(im.ifIndex, im.msg.Answer)
-			ds.handleResponseRecords(im.ifIndex, im.msg.Ns)
-			ds.handleResponseRecords(im.ifIndex, im.msg.Extra)
+			ds.handleIncomingMessage(im)
+		}
+		for {
+			select {
+			case cmd := <-ds.cmdCh:
+				cmd()
+			case im := <-ds.ns.msgCh:
+				ds.handleIncomingMessage(im)
+			default:
+				ds.ns.sendPending()
+				continue outer
+			}
 		}
 	}
 }
 
-func (ds *dnssd) publish(a *answer) {
+func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
+	ds.handleResponseRecords(im, im.msg.Answer)
+	ds.handleResponseRecords(im, im.msg.Ns)
+	ds.handleResponseRecords(im, im.msg.Extra)
+}
+
+func (ds *dnssd) publish(ifIndex int, a *answer) {
 	ds.rrl.add(a)
-	// TODO: We may want to batch these.
-	resp := new(dns.Msg)
-	resp.MsgHdr.Response = true
-	resp.Answer = []dns.RR{a.rr}
-	go ds.ns.sendMessage(resp)
+	ds.ns.publish(ifIndex, a.rr)
 }
 
 // Check all cached RR entries and send a question for more
@@ -60,22 +73,23 @@ func (ds *dnssd) publish(a *answer) {
 func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 	matchedAnswers := ds.rrc.matchQuestion(q)
 
+	// Find a currently running query and attach this command.
+	cq := ds.cs.findQuestion(q)
+
 	// Check the cache for all entries matching and respond with these.
 	for _, a := range matchedAnswers {
 		dnssdlog("ANSWER ", a)
 		cb.respond(a)
+		if cq == nil {
+			// Only add known answers if we intend to ask a question
+			ds.ns.sendKnownAnswer(ifIndex, a.rr)
+		}
 	}
 
-	// Find a currently running query and attach this command.
-	cq := ds.cs.findQuestion(q)
 	if cq == nil {
 		cq = ds.cs.makeQuestion(q)
 		cq.attach(cb)
-		queryMsg := new(dns.Msg)
-		queryMsg.MsgHdr.Response = false
-		queryMsg.Question = []dns.Question{*q}
-		queryMsg.Answer = rrs(matchedAnswers)
-		ds.ns.sendMessage(queryMsg)
+		ds.ns.sendQuestion(ifIndex, q)
 	} else {
 		cq.attach(cb)
 	}
@@ -85,10 +99,11 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 func (ds *dnssd) runProbe(ifIndex int, q *dns.Question, cb *callback) {
 	cq := ds.cs.makeQuestion(q)
 	cq.attach(cb)
-	ds.ns.addQuestion(ifIndex, q)
+	ds.ns.sendQuestion(ifIndex, q)
 }
 
-func (ds *dnssd) handleResponseRecords(ifIndex int, rrs []dns.RR) {
+func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
+	ifIndex := im.ifIndex
 	for _, rr := range rrs {
 
 		cacheFlush := rr.Header().Class&0x8000 != 0

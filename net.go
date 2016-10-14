@@ -21,9 +21,14 @@ type netserver struct {
 	ipv4conn *net.UDPConn
 	ipv6conn *net.UDPConn
 
+	p1 *ipv4.PacketConn
+	p2 *ipv6.PacketConn
+
 	closed    bool
 	msgCh     chan *incomingMsg
 	closeLock sync.Mutex
+
+	query, response *dns.Msg
 }
 
 type incomingMsg struct {
@@ -91,12 +96,54 @@ func (nss *netservers) addInterface(iface net.Interface) (err error) {
 	return
 }
 
-func (nss *netservers) sendMessage(msg *dns.Msg) error {
-	nss.log("sendMessage", msg)
+func (nss *netservers) sendPending() {
 	for _, ns := range nss.servers {
-		ns.sendMessage(msg)
+		ns.sendPending()
 	}
-	return nil
+}
+
+func (nss *netserver) sendPending() {
+	nss.send(&nss.query, false)
+	nss.send(&nss.response, true)
+}
+
+func (nss *netserver) send(msgp **dns.Msg, response bool) {
+	msg := *msgp
+
+	if msg != nil && (len(msg.Question) > 0 || len(msg.Answer) > 0) {
+		nss.log("send!... ", msg)
+		nss.sendMessage(msg)
+	}
+	msg = &dns.Msg{}
+	msg.Response = response
+	*msgp = msg
+}
+
+func (nss *netservers) publish(ifIndex int, rr dns.RR) {
+	for _, ns := range nss.servers {
+		if ifIndex == 0 || ifIndex == ns.iface.Index {
+			ns.log("publish: rr=", rr)
+			ns.response.Answer = append(ns.response.Answer, rr)
+		}
+	}
+}
+
+func (nss *netservers) addKnownAnswer(ifIndex int, rr dns.RR) {
+	for _, ns := range nss.servers {
+		if ifIndex == 0 || ifIndex == ns.iface.Index {
+			ns.log("addKnownAnswer: rr=", rr)
+			ns.query.Answer = append(ns.query.Answer, rr)
+		}
+	}
+}
+
+func (nss *netservers) addQuestion(ifIndex int, q *dns.Question) {
+	for _, ns := range nss.servers {
+		if ifIndex == 0 || ifIndex == ns.iface.Index {
+			ns.log("addQuestion: q=", q)
+			ns.query.Question = append(ns.query.Question, *q)
+		}
+	}
 }
 
 func (nss *netservers) shutdown() error {
@@ -125,15 +172,20 @@ func makeNewNetserver(iface net.Interface, msgCh chan *incomingMsg) (*netserver,
 	}
 
 	// Join multicast groups to receive announcements
-	p1 := ipv4.NewPacketConn(ns.ipv4conn)
-	p2 := ipv6.NewPacketConn(ns.ipv6conn)
+	ns.p1 = ipv4.NewPacketConn(ns.ipv4conn)
+	ns.p2 = ipv6.NewPacketConn(ns.ipv6conn)
 
-	if err := p1.JoinGroup(&iface, &net.UDPAddr{IP: mdnsGroupIPv4}); err != nil {
+	fmt.Println("JoinGroup iface=", ns.iface, " IP=", mdnsGroupIPv4)
+	if err := ns.p1.JoinGroup(&ns.iface, &net.UDPAddr{IP: mdnsGroupIPv4}); err != nil {
 		return nil, err
 	}
-	if err := p2.JoinGroup(&iface, &net.UDPAddr{IP: mdnsGroupIPv6}); err != nil {
+	ns.p1.SetMulticastInterface(&ns.iface)
+
+	fmt.Println("JoinGroup iface=", ns.iface, " IP=", mdnsGroupIPv6)
+	if err := ns.p2.JoinGroup(&ns.iface, &net.UDPAddr{IP: mdnsGroupIPv6}); err != nil {
 		return nil, err
 	}
+	ns.p2.SetMulticastInterface(&ns.iface)
 
 	ns.startReceiving()
 	ns.log("Started server, ifIndex=", iface.Index)
@@ -174,7 +226,7 @@ func (nss *netserver) parsePacket(packet []byte, from net.Addr) error {
 		log.Printf("[ERR] dnssd: Failed to unpack packet: %v", err)
 		return err
 	}
-	rmsg := &incomingMsg{&msg, s.iface.Index, from}
+	rmsg := &incomingMsg{&msg, nss.iface.Index, from}
 	nss.log("RX: msg=", rmsg.msg)
 	nss.msgCh <- rmsg
 	//	return s.handleQuery(&msg, from)
@@ -207,23 +259,21 @@ func (nss *netserver) sendMessage(msg *dns.Msg) error {
 		nss.log("Failed to pack message! msg=", msg)
 		return err
 	}
-	if nss.ipv4conn != nil {
-		nss.ipv4conn.WriteTo(buf, ipv4Addr)
+	if nss.p1 != nil {
+		nss.p1.WriteTo(buf, nil, ipv4Addr)
 	}
-	if nss.ipv6conn != nil {
-		nss.ipv6conn.WriteTo(buf, ipv6Addr)
+	if nss.p2 != nil {
+		nss.p2.WriteTo(buf, nil, ipv6Addr)
 	}
 	return nil
 }
 
 func (*netservers) log(msg ...interface{}) {
-	fmt.Print("NETSERVERS")
-	fmt.Println(msg)
+	//fmt.Println("NETSERVERS", msg)
 }
 
-func (nss *netserver) log(msg ...interface{}) {
-	fmt.Print(nss.iface.Name)
-	fmt.Println(msg)
+func (nss *netserver) sendKnownAnswer(ifIndex int, rr dns.RR) {
+	nss.query.Answer = append(nss.query.Answer, rr)
 }
 
 func getInterface(ifIndex int) *net.Interface {

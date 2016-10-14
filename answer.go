@@ -48,14 +48,6 @@ func (aa *answers) matchQuestion(q *dns.Question) []*answer {
 	return matchedAnswers
 }
 
-func rrs(aa []*answer) []dns.RR {
-	r := make([]dns.RR, len(aa))
-	for ii, a := range aa {
-		r[ii] = a.rr
-	}
-	return r
-}
-
 func (a *answer) String() string {
 	return fmt.Sprint("Answer{rr=", a.rr, "}")
 }
