@@ -39,21 +39,22 @@ func (ds *dnssd) processing() {
 		select {
 		case cmd := <-ds.cmdCh:
 			cmd()
-		case msg := <-ds.ns.msgCh:
+		case im := <-ds.ns.msgCh:
 			ifIndex := 0 // TODO get this from msgCh
-			ds.handleResponseRecords(ifIndex, msg.Answer)
-			ds.handleResponseRecords(ifIndex, msg.Ns)
-			ds.handleResponseRecords(ifIndex, msg.Extra)
+			ds.handleResponseRecords(ifIndex, im.msg.Answer)
+			ds.handleResponseRecords(ifIndex, im.msg.Ns)
+			ds.handleResponseRecords(ifIndex, im.msg.Extra)
 		}
 	}
 }
+
 func (ds *dnssd) publish(a *answer) {
 	ds.rrl.add(a)
 	// TODO: We may want to batch these.
 	resp := new(dns.Msg)
 	resp.MsgHdr.Response = true
 	resp.Answer = []dns.RR{a.rr}
-	go ds.ns.sendUnsolicitedMessage(resp)
+	go ds.ns.sendMessage(resp)
 }
 
 // Check all cached RR entries and send a question for more
@@ -80,8 +81,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 		queryMsg.MsgHdr.Response = false
 		queryMsg.Question = []dns.Question{*q}
 		queryMsg.Answer = rrs(matchedAnswers)
-		dnssdlog("sendQuery", cq)
-		ds.ns.sendQuery(queryMsg)
+		ds.ns.sendMessage(queryMsg)
 	} else {
 		cq.attach(cb)
 	}

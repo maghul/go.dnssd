@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/miekg/dns"
 	"golang.org/x/net/ipv4"
@@ -22,7 +21,7 @@ type netserver struct {
 }
 
 type incomingMsg struct {
-	*dns.Msg
+	msg  *dns.Msg
 	from net.Addr
 }
 
@@ -118,22 +117,6 @@ func (nss *netserver) startReceiving() {
 	}
 }
 
-// multicastResponse us used to send a multicast response packet
-func (nss *netserver) multicastResponse(msg *dns.Msg) error {
-	buf, err := msg.Pack()
-	if err != nil {
-		log.Println("Failed to pack message!")
-		return err
-	}
-	if nss.ipv4conn != nil {
-		nss.ipv4conn.WriteTo(buf, ipv4Addr)
-	}
-	if nss.ipv6conn != nil {
-		nss.ipv6conn.WriteTo(buf, ipv6Addr)
-	}
-	return nil
-}
-
 // recv is a long running routine to receive packets from an interface
 func (nss *netserver) _recv(c *net.UDPConn) {
 	if c == nil {
@@ -184,9 +167,11 @@ func (nss *netserver) shutdown() error {
 }
 
 // Pack the dns.Msg and write to available connections (multicast)
-func (nss *netserver) sendQuery(msg *dns.Msg) error {
+func (nss *netserver) sendMessage(msg *dns.Msg) error {
+	dnssdlog("sendMessage", msg)
 	buf, err := msg.Pack()
 	if err != nil {
+		log.Println("Failed to pack message!")
 		return err
 	}
 	if nss.ipv4conn != nil {
