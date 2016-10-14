@@ -14,6 +14,8 @@ import (
 type netservers struct {
 	servers map[int]*netserver
 	msgCh   chan *incomingMsg
+
+	query, response *dns.Msg
 }
 
 type netserver struct {
@@ -27,8 +29,6 @@ type netserver struct {
 	closed    bool
 	msgCh     chan *incomingMsg
 	closeLock sync.Mutex
-
-	query, response *dns.Msg
 }
 
 type incomingMsg struct {
@@ -74,7 +74,7 @@ func makeNetservers() (ns *netservers, err error) {
 	if err != nil {
 		return
 	}
-	ns = &netservers{make(map[int]*netserver), msgCh}
+	ns = &netservers{make(map[int]*netserver), msgCh, &dns.Msg{}, &dns.Msg{}}
 
 	for _, iface := range ifaces {
 		ns.addInterface(iface)
@@ -91,14 +91,9 @@ func (nss *netservers) addInterface(iface net.Interface) (err error) {
 }
 
 func (nss *netservers) sendPending() {
-	for _, ns := range nss.servers {
-		ns.sendPending()
-	}
-}
-
-func (nss *netserver) sendPending() {
-	nss.send(&nss.query, false)
-	nss.send(&nss.response, true)
+	ns := nss.servers[1]
+	ns.send(&nss.query, false)
+	ns.send(&nss.response, true)
 }
 
 func (nss *netserver) send(msgp **dns.Msg, response bool) {
@@ -114,39 +109,19 @@ func (nss *netserver) send(msgp **dns.Msg, response bool) {
 }
 
 func (nss *netservers) addResponseQuestion(ifIndex int, q *dns.Question) {
-	for _, ns := range nss.servers {
-		if ifIndex == 0 || ifIndex == ns.iface.Index {
-			ns.log("addQuestion: q=", q)
-			ns.response.Question = append(ns.response.Question, *q)
-		}
-	}
+	nss.response.Question = append(nss.response.Question, *q)
 }
 
 func (nss *netservers) publish(ifIndex int, rr dns.RR) {
-	for _, ns := range nss.servers {
-		if ifIndex == 0 || ifIndex == ns.iface.Index {
-			ns.log("publish: rr=", rr)
-			ns.response.Answer = append(ns.response.Answer, rr)
-		}
-	}
+	nss.response.Answer = append(nss.response.Answer, rr)
 }
 
 func (nss *netservers) addKnownAnswer(ifIndex int, rr dns.RR) {
-	for _, ns := range nss.servers {
-		if ifIndex == 0 || ifIndex == ns.iface.Index {
-			ns.log("addKnownAnswer: rr=", rr)
-			ns.query.Answer = append(ns.query.Answer, rr)
-		}
-	}
+	nss.query.Answer = append(nss.query.Answer, rr)
 }
 
 func (nss *netservers) addQuestion(ifIndex int, q *dns.Question) {
-	for _, ns := range nss.servers {
-		if ifIndex == 0 || ifIndex == ns.iface.Index {
-			ns.log("addQuestion: q=", q)
-			ns.query.Question = append(ns.query.Question, *q)
-		}
-	}
+	nss.query.Question = append(nss.query.Question, *q)
 }
 
 func (nss *netservers) shutdown() error {

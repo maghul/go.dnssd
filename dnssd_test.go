@@ -11,19 +11,18 @@ func makeTestDnssd(t *testing.T) (*dnssd, chan func()) {
 	cmdCh := make(chan func(), 32)
 	ns, err := makeTestNetservers()
 	assert.NoError(t, err)
-	assert.NotNil(t, ns)
 
 	ds = &dnssd{ns, &questions{nil}, cmdCh, nil, nil}
 	ds.rrc = makeAnswers() // Remote entries, lookup only
 	ds.rrl = makeAnswers() // Local entries, repond and lookup.
-	testlog("response=", ds.ns.servers[2].response)
+	testlog("response=", ds.ns.response)
 	return ds, cmdCh
 }
 
 func (ds *dnssd) addPublishedAnswer(name string, ifIndex int) {
 	a := makeTestPtrAnswer(ifIndex, name, "hoppla", 12000)
 	ds.rrl.add(a)
-	testlog("response=", ds.ns.servers[ifIndex].response)
+	testlog("response=", ds.ns.response)
 
 }
 func (ds *dnssd) runTestQuestion(name string, ifIndex int) {
@@ -41,8 +40,8 @@ func TestHandleIncomingMessageQuestion(t *testing.T) {
 	ds.addPublishedAnswer(name, ifIndex)
 	ds.runTestQuestion(name, ifIndex)
 
-	responseMsg := ds.ns.servers[ifIndex].response
-	testlog("response=", ds.ns.servers[ifIndex].response)
+	responseMsg := ds.ns.response
+	testlog("response=", ds.ns.response)
 	assert.NotNil(t, responseMsg)
 	assert.Equal(t, 1, len(responseMsg.Answer))
 }

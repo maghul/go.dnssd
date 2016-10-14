@@ -14,7 +14,7 @@ func makeTestNetservers() (ns *netservers, err error) {
 	if err != nil {
 		return
 	}
-	ns = &netservers{make(map[int]*netserver), msgCh}
+	ns = &netservers{make(map[int]*netserver), msgCh, &dns.Msg{}, &dns.Msg{}}
 
 	for _, iface := range ifaces {
 		ns.addTestInterface(iface)
@@ -39,7 +39,5 @@ func (nss *netservers) addTestInterface(iface net.Interface) (err error) {
 func makeTestNetserver(iface net.Interface, msgCh chan *incomingMsg) (*netserver, error) {
 
 	ns := &netserver{iface: iface, msgCh: msgCh}
-	ns.response = &dns.Msg{}
-	ns.query = &dns.Msg{}
 	return ns, nil
 }
