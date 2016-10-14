@@ -7,40 +7,46 @@ import (
 	"github.com/miekg/dns"
 )
 
-var ns *netserver
+type dnssd struct {
+	ns    *netserver
+	cmdCh chan *command
+}
 
-func getNetserver() *netserver {
-	if ns == nil {
-		var err error
-		ns, err = newNetserver(nil)
+var ds *dnssd
+
+func getDnssd() *dnssd {
+	if ds == nil {
+		ns, err := makeNetserver(nil)
 		if err != nil {
 			panic("Could not start netserver")
 		}
 		ns.startReceiving()
-		go ns.processing()
+		cmdCh := make(chan *command, 32)
+		ds = &dnssd{ns, cmdCh}
+		go ds.processing()
 	}
-	return ns
+	return ds
 }
 
-func (c *netserver) processing() {
+func (ds *dnssd) processing() {
 	var cs []*command
 	rrc := &rrcache{} // Remote entries, lookup only
 	rrl := &rrcache{} // Local entries, repond and lookup.
 
 	for {
 		select {
-		case cmd := <-c.cmdCh:
+		case cmd := <-ds.cmdCh:
 			if cmd.rr != nil {
 				rrl.add(cmd.rr)
 				resp := new(dns.Msg)
 				resp.MsgHdr.Response = true
 				resp.Answer = []dns.RR{cmd.rr}
 				resp.Extra = []dns.RR{}
-				go c.sendUnsolicitedMessage(resp)
+				go ds.ns.sendUnsolicitedMessage(resp)
 			} else {
 				if !rrc.matchQuestion(cmd) {
 					// TODO: Don't resend queries!
-					err := c.sendQuery(cmd.q)
+					err := ds.ns.sendQuery(cmd.q)
 					if err != nil {
 						cmd.errc(err)
 					} else {
@@ -48,7 +54,7 @@ func (c *netserver) processing() {
 					}
 				}
 			}
-		case msg := <-c.msgCh:
+		case msg := <-ds.ns.msgCh:
 			i := 0 // output index
 			for _, cmd := range cs {
 				if cmd.isValid() {
@@ -64,4 +70,10 @@ func (c *netserver) processing() {
 			cs = cs[:i]
 		}
 	}
+}
+
+// Shutdown server will close currently open connections & channel
+func (ds *dnssd) shutdown() error {
+	close(ds.cmdCh)
+	return ds.ns.shutdown()
 }

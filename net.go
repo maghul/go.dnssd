@@ -17,7 +17,6 @@ type netserver struct {
 	ipv6conn *net.UDPConn
 
 	closed    bool
-	cmdCh     chan *command
 	msgCh     chan *incomingMsg
 	closeLock sync.Mutex
 }
@@ -107,8 +106,7 @@ func makeNetserver(iface *net.Interface) (*netserver, error) {
 	}
 
 	msgCh := make(chan *incomingMsg, 32)
-	cmdCh := make(chan *command, 32)
-	return &netserver{ipv4conn: ipv4conn, ipv6conn: ipv6conn, cmdCh: cmdCh, msgCh: msgCh}, nil
+	return &netserver{ipv4conn: ipv4conn, ipv6conn: ipv6conn, msgCh: msgCh}, nil
 }
 
 func (nss *netserver) startReceiving() {
@@ -175,7 +173,6 @@ func (nss *netserver) shutdown() error {
 		return nil
 	}
 	nss.closed = true
-	close(nss.cmdCh)
 
 	if nss.ipv4conn != nil {
 		nss.ipv4conn.Close()

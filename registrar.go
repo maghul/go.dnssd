@@ -30,7 +30,7 @@ if there is an error with the registrar.
 The RegisterRecord closure returned is used to record new register entries.
 */
 func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) RegisterRecord {
-	ns = getNetserver()
+	ds := getDnssd()
 	return func(ctx context.Context, flags Flags, ifIndex int, record dns.RR) {
 		if !flags.required(Unique | Shared) {
 			errc(errBadFlags)
@@ -62,7 +62,7 @@ func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) Register
 			// Publish with exponential backoff: ", name, ": 0, 20, 40, 80, 160, 320, 640, 1280
 			listener(record, 0)
 			for count := 8; count > 0; count-- {
-				ns.cmdCh <- makeCommand(ctx, nil, record, listener, errc)
+				ds.cmdCh <- makeCommand(ctx, nil, record, listener, errc)
 				time.Sleep(time.Duration(publishTime) * time.Millisecond)
 				publishTime *= 2
 			}

@@ -19,7 +19,7 @@ type QueryAnswered func(flags Flags, ifIndex int, rr dns.RR)
 /* Query an arbitrary record.
  */
 func query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rrtype, rrclass uint16, keep bool, response QueryAnswered, errc ErrCallback) {
-	ns = getNetserver()
+	ds := getDnssd()
 
 	// send the query
 	m := new(dns.Msg)
@@ -28,7 +28,7 @@ func query(ctx context.Context, flags Flags, ifIndex int, serviceName string, rr
 	}
 	cmd := makeCommand(ctx, m, nil, response, errc)
 	cmd.keep = keep
-	ns.cmdCh <- cmd
+	ds.cmdCh <- cmd
 }
 
 /*
