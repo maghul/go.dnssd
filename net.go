@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/miekg/dns"
 	"golang.org/x/net/ipv4"
@@ -199,4 +200,29 @@ func (nss *netserver) sendQuery(msg *dns.Msg) error {
 		nss.ipv6conn.WriteTo(buf, ipv6Addr)
 	}
 	return nil
+}
+
+func (nss *netserver) sendUnsolicitedMessage(resp *dns.Msg) {
+	/*	resp := new(dns.Msg)
+		resp.MsgHdr.Response = true
+		resp.Answer = []dns.RR{}
+		resp.Extra = []dns.RR{}
+		s.composeLookupAnswers(service, resp, s.ttl)
+	*/
+
+	// From RFC6762
+	//    The Multicast DNS responder MUST send at least two unsolicited
+	//    responses, one second apart. To provide increased robustness against
+	//    packet loss, a responder MAY send up to eight unsolicited responses,
+	//    provided that the interval between unsolicited responses increases by
+	//    at least a factor of two with every response sent.
+	timeout := 1 * time.Second
+	for i := 0; i < 3; i++ {
+		fmt.Println("MULTICAST!", resp)
+		if err := nss.multicastResponse(resp); err != nil {
+			log.Println("[ERR] bonjour: failed to send announcement:", err.Error())
+		}
+		time.Sleep(timeout)
+		timeout *= 2
+	}
 }

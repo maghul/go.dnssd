@@ -8,14 +8,23 @@ import (
 )
 
 type command struct {
-	ctx  context.Context
-	q    *dns.Msg
-	r    interface{}
-	errc ErrCallback
+	ctx       context.Context
+	q         *dns.Msg // For queries
+	rr        dns.RR   // For registering records.
+	r         interface{}
+	errc      ErrCallback
+	completed bool
+	serial    int
 }
 
+var commandSerial int = 0
+
+func makeCommand(ctx context.Context, q *dns.Msg, rr dns.RR, r interface{}, errc ErrCallback) *command {
+	commandSerial++
+	return &command{ctx, q, rr, r, errc, false, commandSerial}
+}
 func (c *command) String() string {
-	return fmt.Sprint("command{", c.q, "}")
+	return fmt.Sprint("command{#", c.serial, ", q=", c.q, "}")
 }
 
 func (cmd *command) isValid() bool {
@@ -24,13 +33,16 @@ func (cmd *command) isValid() bool {
 		return false
 	default:
 	}
-	return true
+	fmt.Println("ISVALID: ", cmd.completed)
+	return !cmd.completed
 }
 
 func (cmd *command) match(q dns.Question, answer dns.RR) bool {
 	if q.Qtype == answer.Header().Rrtype {
 		if q.Name == answer.Header().Name {
+			fmt.Println("MATCH: ", cmd)
 			respond(cmd.r, answer)
+			cmd.completed = true
 			return true
 		}
 	}

@@ -50,7 +50,7 @@ func NoTestBrowseAndResolve(t *testing.T) {
 	println("done...")
 }
 
-func TestBrowseAndResolveAndLookup(t *testing.T) {
+func NoTestBrowseAndResolveAndLookup(t *testing.T) {
 	prefix := "-------------- "
 	rrc := make(chan bool)
 	ctx := context.Background()

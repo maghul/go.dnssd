@@ -5,6 +5,8 @@ package dnssd
 
 import (
 	"fmt"
+
+	"github.com/miekg/dns"
 )
 
 var ns *netserver
@@ -24,24 +26,34 @@ func getNetserver() *netserver {
 
 func (c *netserver) processing() {
 	var cs []*command
-	rrc := &rrcache{}
+	rrc := &rrcache{} // Remote entries, lookup only
+	rrl := &rrcache{} // Local entries, repond and lookup.
 
 	for {
 		select {
 		case cmd := <-c.cmdCh:
-			//			fmt.Println("COMMAND: ", cmd)
+			fmt.Println("COMMAND: ", cmd)
 
-			if !rrc.matchQuestion(cmd) {
-				// TODO: Don't resend queries!
-				fmt.Println("SEND-QUERY-COMMAND: ", cmd)
-				err := c.sendQuery(cmd.q)
-				if err != nil {
-					cmd.errc(err)
-				} else {
-					cs = append(cs, cmd)
+			if cmd.rr != nil {
+				fmt.Println("COMMAND:RR: ", cmd)
+				rrl.add(cmd.rr)
+				resp := new(dns.Msg)
+				resp.MsgHdr.Response = true
+				resp.Answer = []dns.RR{cmd.rr}
+				resp.Extra = []dns.RR{}
+				go c.sendUnsolicitedMessage(resp)
+			} else {
+				if !rrc.matchQuestion(cmd) {
+					// TODO: Don't resend queries!
+					fmt.Println("SEND-QUERY-COMMAND: ", cmd)
+					err := c.sendQuery(cmd.q)
+					if err != nil {
+						cmd.errc(err)
+					} else {
+						cs = append(cs, cmd)
+					}
 				}
 			}
-
 		case msg := <-c.msgCh:
 			i := 0 // output index
 			for j, cmd := range cs {
