@@ -161,7 +161,6 @@ func (nss *netserver) parsePacket(packet []byte, from net.Addr) error {
 		log.Printf("[ERR] dnssd: Failed to unpack packet: %v", err)
 		return err
 	}
-	fmt.Println("RX", msg)
 	nss.msgCh <- &incomingMsg{&msg, from}
 	//	return s.handleQuery(&msg, from)
 	return nil
@@ -218,7 +217,6 @@ func (nss *netserver) sendUnsolicitedMessage(resp *dns.Msg) {
 	//    at least a factor of two with every response sent.
 	timeout := 1 * time.Second
 	for i := 0; i < 3; i++ {
-		fmt.Println("MULTICAST!", resp)
 		if err := nss.multicastResponse(resp); err != nil {
 			log.Println("[ERR] bonjour: failed to send announcement:", err.Error())
 		}

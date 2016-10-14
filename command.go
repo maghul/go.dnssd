@@ -33,14 +33,12 @@ func (cmd *command) isValid() bool {
 		return false
 	default:
 	}
-	fmt.Println("ISVALID: ", cmd.completed)
 	return !cmd.completed
 }
 
 func (cmd *command) match(q dns.Question, answer dns.RR) bool {
 	if q.Qtype == answer.Header().Rrtype {
 		if q.Name == answer.Header().Name {
-			fmt.Println("MATCH: ", cmd)
 			respond(cmd.r, answer)
 			cmd.completed = true
 			return true
