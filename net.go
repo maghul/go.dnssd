@@ -2,7 +2,6 @@ package dnssd
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"sync"
 
@@ -11,7 +10,13 @@ import (
 	"golang.org/x/net/ipv6"
 )
 
+type netservers struct {
+	servers map[int]*netserver
+	msgCh   chan *incomingMsg
+}
+
 type netserver struct {
+	iface    net.Interface
 	ipv4conn *net.UDPConn
 	ipv6conn *net.UDPConn
 
@@ -21,8 +26,9 @@ type netserver struct {
 }
 
 type incomingMsg struct {
-	msg  *dns.Msg
-	from net.Addr
+	msg     *dns.Msg
+	ifIndex int
+	from    net.Addr
 }
 
 type netCommand int
@@ -58,54 +64,79 @@ var (
 )
 
 func (im *incomingMsg) String() string {
-	return fmt.Sprintf("IM{%s,%s}", im.from, im.msg)
+	return fmt.Sprintf("IM{%d,%s,%s}", im.ifIndex, im.from, im.msg)
 }
 
-func makeNetserver(iface *net.Interface) (*netserver, error) {
+func makeNetservers() (ns *netservers, err error) {
+	msgCh := make(chan *incomingMsg, 32)
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return
+	}
+	ns = &netservers{make(map[int]*netserver), msgCh}
+
+	for _, iface := range ifaces {
+		ns.addInterface(iface)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (nss *netservers) addInterface(iface net.Interface) (err error) {
+	nss.servers[iface.Index], err = makeNewNetserver(iface, nss.msgCh)
+	return
+}
+
+func (nss *netservers) sendMessage(msg *dns.Msg) error {
+	for _, ns := range nss.servers {
+		ns.log("netservers::sendMessage")
+		ns.sendMessage(msg)
+	}
+	return nil
+}
+
+func (nss *netservers) shutdown() error {
+	for _, ns := range nss.servers {
+		ns.shutdown()
+	}
+	return nil
+}
+
+func makeNewNetserver(iface net.Interface, msgCh chan *incomingMsg) (*netserver, error) {
+
+	ns := &netserver{iface: iface, msgCh: msgCh}
+	var err error
 	// Create wildcard connections (because :5353 can be already taken by other apps)
-	ipv4conn, err := net.ListenUDP("udp4", mdnsWildcardAddrIPv4)
+	ns.ipv4conn, err = net.ListenUDP("udp4", mdnsWildcardAddrIPv4)
 	if err != nil {
 		log.Printf("[ERR] dnssd: Failed to bind to udp4 port: %v", err)
 	}
-	ipv6conn, err := net.ListenUDP("udp6", mdnsWildcardAddrIPv6)
+	ns.ipv6conn, err = net.ListenUDP("udp6", mdnsWildcardAddrIPv6)
 	if err != nil {
 		log.Printf("[ERR] dnssd: Failed to bind to udp6 port: %v", err)
 	}
-	if ipv4conn == nil && ipv6conn == nil {
+	if ns.ipv4conn == nil && ns.ipv6conn == nil {
+		ns.log("[ERR] dnssd: Failed to bind to any udp port!")
 		return nil, fmt.Errorf("[ERR] dnssd: Failed to bind to any udp port!")
 	}
 
 	// Join multicast groups to receive announcements
-	p1 := ipv4.NewPacketConn(ipv4conn)
-	p2 := ipv6.NewPacketConn(ipv6conn)
-	if iface != nil {
-		if err := p1.JoinGroup(iface, &net.UDPAddr{IP: mdnsGroupIPv4}); err != nil {
-			return nil, err
-		}
-		if err := p2.JoinGroup(iface, &net.UDPAddr{IP: mdnsGroupIPv6}); err != nil {
-			return nil, err
-		}
-	} else {
-		ifaces, err := net.Interfaces()
-		if err != nil {
-			return nil, err
-		}
-		errCount1, errCount2 := 0, 0
-		for _, iface := range ifaces {
-			if err := p1.JoinGroup(&iface, &net.UDPAddr{IP: mdnsGroupIPv4}); err != nil {
-				errCount1++
-			}
-			if err := p2.JoinGroup(&iface, &net.UDPAddr{IP: mdnsGroupIPv6}); err != nil {
-				errCount2++
-			}
-		}
-		if len(ifaces) == errCount1 && len(ifaces) == errCount2 {
-			return nil, fmt.Errorf("Failed to join multicast group on all interfaces!")
-		}
+	p1 := ipv4.NewPacketConn(ns.ipv4conn)
+	p2 := ipv6.NewPacketConn(ns.ipv6conn)
+
+	if err := p1.JoinGroup(&iface, &net.UDPAddr{IP: mdnsGroupIPv4}); err != nil {
+		return nil, err
+	}
+	if err := p2.JoinGroup(&iface, &net.UDPAddr{IP: mdnsGroupIPv6}); err != nil {
+		return nil, err
 	}
 
-	msgCh := make(chan *incomingMsg, 32)
-	return &netserver{ipv4conn: ipv4conn, ipv6conn: ipv6conn, msgCh: msgCh}, nil
+	ns.startReceiving()
+	ns.log("Started server, ifIndex=", iface.Index)
+	return ns, nil
 }
 
 func (nss *netserver) startReceiving() {
@@ -142,7 +173,9 @@ func (nss *netserver) parsePacket(packet []byte, from net.Addr) error {
 		log.Printf("[ERR] dnssd: Failed to unpack packet: %v", err)
 		return err
 	}
-	nss.msgCh <- &incomingMsg{&msg, from}
+	rmsg := &incomingMsg{&msg, s.iface.Index, from}
+	nss.log("RX: msg=", rmsg.msg)
+	nss.msgCh <- rmsg
 	//	return s.handleQuery(&msg, from)
 	return nil
 }
@@ -168,10 +201,10 @@ func (nss *netserver) shutdown() error {
 
 // Pack the dns.Msg and write to available connections (multicast)
 func (nss *netserver) sendMessage(msg *dns.Msg) error {
-	dnssdlog("sendMessage", msg)
+	nss.log("sendMessage", msg)
 	buf, err := msg.Pack()
 	if err != nil {
-		log.Println("Failed to pack message!")
+		nss.log("Failed to pack message!")
 		return err
 	}
 	if nss.ipv4conn != nil {
@@ -183,26 +216,7 @@ func (nss *netserver) sendMessage(msg *dns.Msg) error {
 	return nil
 }
 
-func (nss *netserver) sendUnsolicitedMessage(resp *dns.Msg) {
-	/*	resp := new(dns.Msg)
-		resp.MsgHdr.Response = true
-		resp.Answer = []dns.RR{}
-		resp.Extra = []dns.RR{}
-		s.composeLookupAnswers(service, resp, s.ttl)
-	*/
-
-	// From RFC6762
-	//    The Multicast DNS responder MUST send at least two unsolicited
-	//    responses, one second apart. To provide increased robustness against
-	//    packet loss, a responder MAY send up to eight unsolicited responses,
-	//    provided that the interval between unsolicited responses increases by
-	//    at least a factor of two with every response sent.
-	timeout := 1 * time.Second
-	for i := 0; i < 3; i++ {
-		if err := nss.multicastResponse(resp); err != nil {
-			log.Println("[ERR] bonjour: failed to send announcement:", err.Error())
-		}
-		time.Sleep(timeout)
-		timeout *= 2
-	}
+func (nss *netserver) log(msg ...interface{}) {
+	//fmt.Print(s.iface.Name)
+	//fmt.Println(msg)
 }

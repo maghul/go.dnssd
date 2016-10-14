@@ -8,7 +8,7 @@ import (
 )
 
 type dnssd struct {
-	ns    *netserver
+	ns    *netservers
 	cs    questions
 	cmdCh chan func()
 	rrc   *answers
@@ -19,11 +19,10 @@ var ds *dnssd
 
 func getDnssd() *dnssd {
 	if ds == nil {
-		ns, err := makeNetserver(nil)
+		ns, err := makeNetservers()
 		if err != nil {
 			panic("Could not start netserver")
 		}
-		ns.startReceiving()
 		cmdCh := make(chan func(), 32)
 		ds = &dnssd{ns, nil, cmdCh, nil, nil}
 		ds.rrc = &answers{} // Remote entries, lookup only
@@ -40,10 +39,9 @@ func (ds *dnssd) processing() {
 		case cmd := <-ds.cmdCh:
 			cmd()
 		case im := <-ds.ns.msgCh:
-			ifIndex := 0 // TODO get this from msgCh
-			ds.handleResponseRecords(ifIndex, im.msg.Answer)
-			ds.handleResponseRecords(ifIndex, im.msg.Ns)
-			ds.handleResponseRecords(ifIndex, im.msg.Extra)
+			ds.handleResponseRecords(im.ifIndex, im.msg.Answer)
+			ds.handleResponseRecords(im.ifIndex, im.msg.Ns)
+			ds.handleResponseRecords(im.ifIndex, im.msg.Extra)
 		}
 	}
 }
