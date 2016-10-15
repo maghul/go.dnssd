@@ -9,20 +9,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func NoTestResolve1(t *testing.T) {
-	rrc := make(chan dns.RR)
-	ctx := context.Background()
+func TestResolve1(t *testing.T) {
+	defer SetLog("all", nulllogg)
+
+	ds, _ = makeTestDnssd(t)
+	go ds.processing()
+
+	rrc := make(chan string, 5)
+	defer close(rrc)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	Resolve(ctx, 0, 0, "rafael", "_airplay._tcp", "local",
 		func(flags Flags, ifIndex int, fullName, hostName string, port uint16, txt []string) {
-			fmt.Println("Resolved: name=", fullName, ", host=", hostName, ", port=", port, ", text=", txt)
-			close(rrc)
+			rrc <- fmt.Sprint("Resolved: name=", fullName, ", host=", hostName, ", port=", port, ", text=", txt)
 		}, func(err error) {
-			fmt.Println("TestResolve1 err=", err)
+			rrc <- fmt.Sprint("TestResolve1 err=", err)
 		})
-	assert.NotNil(t, ctx)
-	for ii := 0; ii < 1; ii++ {
-		b := <-rrc
-		fmt.Println("b=", b)
-	}
-	println("done...")
+	ds.ns.msgCh <- fakeIncomingMsg(true).
+		addRR("rafael._airplay._tcp.local.", dns.TypeSRV, 0, 0, 4711, "www.facebook.it").
+		addRR("rafael._airplay._tcp.local.", dns.TypeTXT, "hi=there")
+
+	assert.Equal(t, "Resolved: name=rafael._airplay._tcp.local., host=www.facebook.it, port=4711, text=[hi=there]", <-rrc)
 }
