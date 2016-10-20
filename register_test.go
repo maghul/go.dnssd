@@ -25,7 +25,7 @@ func TestRegister1(t *testing.T) {
 	}
 
 	txt := []string{"test=hej", "tjo=hopp"}
-	addrecord := Register(ctx, 0, 3, "Stryfnake", "_tuting._tcp", "", "", 4711, txt, func(flags int, serviceName, regType, domain string) {
+	addrecord := Register(ctx, 0, 3, "Stryfnake", "_tuting._tcp", "", "myhost", 4711, txt, func(flags int, serviceName, regType, domain string) {
 		fmt.Println("Register: serviceName=", serviceName, ", regType=", regType, ",domain=", domain)
 		rrc <- fmt.Sprint("Register: serviceName=", serviceName, ", regType=", regType, ",domain=", domain)
 	}, errc)
@@ -39,7 +39,7 @@ func TestRegister1(t *testing.T) {
 	assertMessage(t, time.Second, "Register: serviceName=Stryfnake, regType=_tuting._tcp,domain=local", rrc)
 	time.Sleep(1 * time.Millisecond)
 	assert.Equal(t, 3, len(ds.ns.response.Answer))
-	assertResponse(t, "Stryfnake._tuting._tcp.local.\t20\tIN\tSRV\t0 0 4711 flurer.local.", ds.ns.response.Answer)
+	assertResponse(t, "Stryfnake._tuting._tcp.local.\t20\tIN\tSRV\t0 0 4711 myhost.local.", ds.ns.response.Answer)
 	assertResponse(t, "Stryfnake._tuting._tcp.local.\t3200\tIN\tTXT\t\"test=hej\" \"tjo=hopp\"", ds.ns.response.Answer)
 	assertResponse(t, "_tuting._tcp.local.\t3200\tIN\tPTR\tStryfnake._tuting._tcp.local.", ds.ns.response.Answer)
 
