@@ -8,7 +8,7 @@ import (
 )
 
 type dnssd struct {
-	ns    *netservers
+	ns    *netserver
 	cs    *questions
 	cmdCh chan func()
 	rrc   *answers
@@ -19,7 +19,7 @@ var ds *dnssd
 
 func getDnssd() *dnssd {
 	if ds == nil {
-		ns, err := makeNetservers()
+		ns, err := makeNetserver()
 		if err != nil {
 			panic("Could not start netserver")
 		}
@@ -87,7 +87,7 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 				answered = true
 			}
 			if answered {
-				ds.ns.addResponseQuestion(im.ifIndex, &q)
+				ds.ns.sendResponseQuestion(im.ifIndex, &q)
 			}
 		}
 	}

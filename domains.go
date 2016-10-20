@@ -11,3 +11,7 @@ type DomainUpdate func(err error, flags, ifIndex int, domain string)
 func EnumerateDomains(ctx context.Context, flags, ifIndex int, listener DomainUpdate) {
 	panic("NYI")
 }
+
+func getOwnDomainname() string {
+	return "local" // TODO: fix?
+}

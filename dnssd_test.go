@@ -9,8 +9,9 @@ import (
 
 func makeTestDnssd(t *testing.T) (*dnssd, chan func()) {
 	cmdCh := make(chan func(), 32)
-	ns, err := makeTestNetservers()
+	ns, err := makeTestNetserver()
 	assert.NoError(t, err)
+	assert.NotNil(t, ns)
 
 	ds = &dnssd{ns, &questions{nil}, cmdCh, nil, nil}
 	ds.rrc = makeAnswers() // Remote entries, lookup only
