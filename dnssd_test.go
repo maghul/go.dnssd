@@ -18,14 +18,14 @@ func makeTestDnssd(t *testing.T) (*dnssd, chan func()) {
 	ds.rrl = makeAnswers() // Local entries, repond and lookup.
 	ds.cn = ds.ctxn.getContextNotifications()
 
-	testlog("response=", ds.ns.response)
+	testlog.Debug.Println("response=", ds.ns.response)
 	return ds, cmdCh
 }
 
 func (ds *dnssd) addPublishedAnswer(name string, ifIndex int) {
 	a := makeTestPtrAnswer(ifIndex, name, "hoppla", 12000)
 	ds.rrl.add(a)
-	testlog("response=", ds.ns.response)
+	testlog.Debug.Println("response=", ds.ns.response)
 
 }
 func (ds *dnssd) runTestQuestion(name string, ifIndex int) {
@@ -44,7 +44,7 @@ func TestHandleIncomingMessageQuestion(t *testing.T) {
 	ds.runTestQuestion(name, ifIndex)
 
 	responseMsg := ds.ns.response
-	testlog("response=", ds.ns.response)
+	testlog.Debug.Println("response=", ds.ns.response)
 	assert.NotNil(t, responseMsg)
 	assert.Equal(t, 1, len(responseMsg.Answer))
 }

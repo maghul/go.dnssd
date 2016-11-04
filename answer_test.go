@@ -21,11 +21,11 @@ func makeTestPtrQuestion(name string) *question {
 }
 
 func (aa *answers) dump(ref string) {
-	dnssdlog("--------------- START DUMP --- ", ref, " ---------------")
+	dnssdlog.Debug.Println("--------------- START DUMP --- ", ref, " ---------------")
 	for _, a := range aa.cache {
-		dnssdlog("DUMP: ", a)
+		dnssdlog.Debug.Println("DUMP: ", a)
 	}
-	dnssdlog("---------------- END DUMP --- ", ref, " ---------------")
+	dnssdlog.Debug.Println("---------------- END DUMP --- ", ref, " ---------------")
 }
 
 func TestMatchingAnswers(t *testing.T) {

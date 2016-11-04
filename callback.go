@@ -20,7 +20,7 @@ var callbackIndex = 0
 func callbackThread(num int) {
 	for {
 		call := <-callbackChan
-		dnssdlog("CALL: #", num)
+		dnssdlog.Debug.Println("CALL: #", num)
 		call()
 	}
 }
@@ -53,7 +53,7 @@ func (cb *callback) respond(a *answer) bool {
 		flags = RecordAdded
 	}
 	f := func() {
-		dnssdlog("RUN CALLBACK:", cb)
+		dnssdlog.Debug.Println("RUN CALLBACK:", cb)
 		cb.call(flags, a.ifIndex, a.rr)
 	}
 
@@ -70,7 +70,7 @@ func (cb *callback) respond(a *answer) bool {
 		// callback thread isn't reading. start a new one.
 		callbackThreads++
 		go callbackThread(callbackThreads)
-		dnssdlog("------------------> started callback thread #", callbackThreads)
+		dnssdlog.Debug.Println("------------------> started callback thread #", callbackThreads)
 		callbackChan <- f
 	}
 	return true

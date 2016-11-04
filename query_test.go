@@ -25,7 +25,7 @@ func TestQuery1(t *testing.T) {
 
 	Query(ctx, 0, 0, &dns.Question{Name: "turner.local.", Qtype: dns.TypeA, Qclass: dns.ClassINET},
 		func(flags Flags, ifIndex int, rr dns.RR) {
-			dnssdlog("-----------------> ", rr)
+			dnssdlog.Debug.Println("-----------------> ", rr)
 			rrc <- rr.String()
 		}, errc)
 

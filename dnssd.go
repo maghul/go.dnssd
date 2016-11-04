@@ -64,7 +64,7 @@ func (ds *dnssd) processing() {
 			checkTimer.Stop()
 		} else if st != nt {
 			st = nt
-			dnssdlog("Next Timed event occurs at ", st)
+			dnssdlog.Debug.Println("Next Timed event occurs at ", st)
 			checkTimer.Reset(st.Sub(now))
 		}
 
@@ -100,7 +100,7 @@ func (ds *dnssd) processing() {
 }
 
 func (ds *dnssd) handleClosedContext(ctx context.Context) time.Time {
-	dnssdlog("handleClosedContext: ctx=", ctx)
+	dnssdlog.Debug.Println("handleClosedContext: ctx=", ctx)
 	// This will do what we want when a context has been closed
 	// but it will do unnecessary scanning of all records so it
 	// can be optimized.
@@ -127,7 +127,7 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 		// Check each question find matching answers and remove
 		// any already known by peer.
 		for _, q := range im.msg.Question {
-			qlog("Question from", im.from, "=", q.String)
+			qlog.Info.Println("Question from", im.from, "=", q.String)
 			matchedResponses := ds.rrl.matchQuestion(&q)
 		nextMatchedResponse:
 			for _, mr := range matchedResponses {
@@ -142,7 +142,7 @@ func (ds *dnssd) handleIncomingMessage(im *incomingMsg) {
 				} else {
 					ds.nextSendAt(randomDuration(500*time.Millisecond, 100))
 				}
-				qlog("Response:", mr.rr)
+				qlog.Info.Println("Response:", mr.rr)
 				ds.ns.sendResponseRecord(im.ifIndex, mr.rr)
 			}
 		}
@@ -171,7 +171,7 @@ func (ds *dnssd) runQuery(ifIndex int, q *dns.Question, cb *callback) {
 
 	// Check the cache for all entries matching and respond with these.
 	f := func(a *answer) {
-		dnssdlog("ANSWER ", a)
+		dnssdlog.Debug.Println("ANSWER ", a)
 		cb.respond(a)
 		if cq == nil {
 			// Only add known answers if we intend to ask a question
@@ -203,7 +203,7 @@ func (ds *dnssd) runProbe(ifIndex int, q *dns.Question, cb *callback) {
 func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 	ifIndex := im.ifIndex
 	for _, rr := range rrs {
-		qlog("Record from=", im.from, "=", rr)
+		qlog.Debug.Println("Record from=", im.from, "=", rr)
 		cacheFlush := rr.Header().Class&0x8000 != 0
 		flags := Shared
 		if cacheFlush {
@@ -222,7 +222,7 @@ func (ds *dnssd) handleResponseRecords(im *incomingMsg, rrs []dns.RR) {
 			// We have a challenge record.
 			if challenge.flags&Unique != 0 {
 				ds.nextSendAt(0)
-				dnssdlog("CHALLENGE!, ", rr, challenge)
+				dnssdlog.Debug.Println("CHALLENGE!, ", rr, challenge)
 				ds.ns.sendResponseRecord(ifIndex, challenge.rr)
 			}
 		}
@@ -237,12 +237,12 @@ func (ds *dnssd) updateTTLOnPublishedRecords() time.Time {
 		// Republish old answers...
 		a.added = time.Now()
 		a.requeried = 0
-		dnssdlog("SENDING REPUBLISH..", a.rr)
+		dnssdlog.Debug.Println("SENDING REPUBLISH..", a.rr)
 		ds.nextSendAt(100 * time.Millisecond)
 		ds.ns.sendResponseRecord(a.ifIndex, a.rr)
 	}, func(a *answer) {
 		a.rr.Header().Ttl = 0
-		dnssdlog("SENDING UNPUBLISH..", a.rr)
+		dnssdlog.Debug.Println("SENDING UNPUBLISH..", a.rr)
 		ds.nextSendAt(100 * time.Millisecond)
 		ds.ns.sendResponseRecord(a.ifIndex, a.rr)
 	})
@@ -262,7 +262,7 @@ func (ds *dnssd) requeryOldAnswers() time.Time {
 		}
 	}, func(a *answer) {
 		// The record has been removed
-		dnssdlog("Record removed:", a)
+		dnssdlog.Debug.Println("Record removed:", a)
 	})
 }
 

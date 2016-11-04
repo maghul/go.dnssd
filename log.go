@@ -1,38 +1,25 @@
 package dnssd
 
 import (
-	"fmt"
+	"github.com/maghul/go.slf"
 )
 
-type logg func(data ...interface{})
+var dnssdlog = getLogger("dnssd.dnssd", "Internal DNSSD Logging")
+var qlog = getLogger("dnssd.queries", "Query Logging")
+var netlog = getLogger("dnssd.net", "Networking")
+var testlog = getLogger("dnssd.test", "Test Logging")
+var parentlog = slf.GetLogger("dnssd")
 
-func nulllogg(data ...interface{}) {
-
+func init() {
+	r := slf.GetLogger("dnssd")
+	r.SetDescription("DNSSD Parent Logging")
+	r.SetLevel(slf.Parent)
 }
 
-func stdlog(data ...interface{}) {
-	fmt.Println(data)
-}
-
-var dnssdlog = nulllogg
-var netlog = nulllogg
-var qlog = nulllogg
-var testlog = nulllogg
-
-func SetLog(name string, logger func(data ...interface{})) {
-	switch name {
-	case "net":
-		netlog = logger
-	case "dnssd":
-		dnssdlog = logger
-	case "q":
-		qlog = logger
-	case "test":
-		testlog = logger
-	case "all":
-		netlog = logger
-		dnssdlog = logger
-		qlog = logger
-		testlog = logger
-	}
+func getLogger(name, description string) *slf.Logger {
+	l := slf.GetLogger(name)
+	r := slf.GetLogger("dnssd")
+	l.SetParent(r)
+	l.SetDescription(description)
+	return l
 }

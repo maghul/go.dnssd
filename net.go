@@ -64,11 +64,11 @@ func makeNetserver() (*netserver, error) {
 	// Create wildcard connections (because :5353 can be already taken by other apps)
 	ipv4conn, err := net.ListenUDP("udp4", mdnsWildcardAddrIPv4)
 	if err != nil {
-		netlog("[ERR] dnssd: Failed to bind to udp4 port: ", err)
+		netlog.Info.Println("[ERR] dnssd: Failed to bind to udp4 port: ", err)
 	}
 	ipv6conn, err := net.ListenUDP("udp6", mdnsWildcardAddrIPv6)
 	if err != nil {
-		netlog("[ERR] dnssd: Failed to bind to udp6 port: ", err)
+		netlog.Info.Println("[ERR] dnssd: Failed to bind to udp6 port: ", err)
 	}
 	if ipv4conn == nil && ipv6conn == nil {
 		return nil, fmt.Errorf("[ERR] dnssd: Failed to bind to any udp port!")
@@ -138,17 +138,17 @@ func (nss *netserver) _recv(readSocket func(buf []byte) (n, ifIndex int, from ne
 	for !nss.closed {
 		n, ifIndex, from, err := readSocket(buf)
 		if err != nil {
-			netlog("[ERR] dnssd: Failed to read packet: ", err)
+			netlog.Info.Println("[ERR] dnssd: Failed to read packet: ", err)
 			continue
 		}
 
 		var msg dns.Msg
 		if err := msg.Unpack(buf[:n]); err != nil {
-			netlog("[ERR] dnssd: Failed to unpack packet: ", err)
+			netlog.Info.Println("[ERR] dnssd: Failed to unpack packet: ", err)
 			continue
 		}
 		if !isFromLocalHost(ifIndex, from) {
-			netlog("RX: from=", from, ", msg=", msg.String())
+			netlog.Debug.Println("RX: from=", from, ", msg=", msg.String())
 			nss.msgCh <- &incomingMsg{&msg, ifIndex, from}
 		}
 	}
@@ -191,7 +191,7 @@ func appendQuestion(qs []dns.Question, q *dns.Question, ref string) []dns.Questi
 			return qs
 		}
 	}
-	qlog(ref, q.String())
+	qlog.Debug.Println(ref, q.String())
 	return append(qs, *q)
 }
 
@@ -201,7 +201,7 @@ func appendRecord(rs []dns.RR, rr dns.RR, ref string) []dns.RR {
 			return rs
 		}
 	}
-	qlog(ref, rr)
+	qlog.Debug.Println(ref, rr)
 	return append(rs, rr)
 }
 
@@ -221,7 +221,7 @@ func (nss *netserver) sendMessage(msgp **dns.Msg) error {
 	*msgp = newMsg
 	newMsg.Response = (msgp == &nss.response)
 
-	netlog("TX:", msg)
+	netlog.Debug.Println("TX:", msg)
 	buf, err := msg.Pack()
 	if err != nil {
 		log.Println("Failed to pack message!", err)

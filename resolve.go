@@ -50,9 +50,9 @@ func Resolve(ctx context.Context, flags Flags, ifIndex int, serviceName, regType
 			txt = rr
 		}
 		if srv != nil && txt != nil {
-			dnssdlog("TXT&SRV --> sending")
+			dnssdlog.Debug.Println("TXT&SRV --> sending")
 			response(flags, ifIndex, qname, srv.Target, srv.Port, txt.Txt)
-			dnssdlog("TXT&SRV --> sending done")
+			dnssdlog.Debug.Println("TXT&SRV --> sending done")
 		}
 	}
 

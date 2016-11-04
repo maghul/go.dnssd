@@ -48,7 +48,7 @@ func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) Register
 					ctxc, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
 					cb := makeCallback("probe", record, ctxc, ifIndex, response)
 					ds.cmdCh <- func() {
-						dnssdlog("DNSSD PROBE=", question)
+						dnssdlog.Info.Println("DNSSD PROBE=", question)
 						ds.runProbe(ifIndex, question, cb)
 					}
 
@@ -69,7 +69,7 @@ func CreateRecordRegistrar(listener RecordRegistered, errc ErrCallback) Register
 
 			publishTime := 20
 			// Publish with exponential backoff: ", name, ": 0, 20, 40, 80, 160, 320, 640, 1280
-			dnssdlog("DNSSD PUBLISH=", record)
+			dnssdlog.Info.Println("DNSSD PUBLISH=", record)
 			listener(record, 0)
 			for count := 8; count > 0; count-- {
 				ds.cmdCh <- func() {

@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/maghul/go.slf"
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestResolve1(t *testing.T) {
-	defer SetLog("all", nulllogg)
+	defer parentlog.SetLevel(slf.Off)
 
 	ds, _ = makeTestDnssd(t)
 	go ds.processing()

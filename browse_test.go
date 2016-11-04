@@ -13,7 +13,7 @@ import (
 func TestBrowse(t *testing.T) {
 	ds, _ = makeTestDnssd(t)
 	go ds.processing()
-	dnssdlog("Start Browse...")
+	dnssdlog.Debug.Println("Start Browse...")
 
 	rrc := make(chan string, 5)
 	defer close(rrc)
@@ -99,16 +99,16 @@ func TestBrowseAndResolveAndLookup(t *testing.T) {
 	}
 	Browse(ctx, 0, 0, "_raop._tcp", "local",
 		func(found bool, flags Flags, ifIndex int, serviceName, regType, domain string) {
-			testlog("TEST BROWSE: ifIndex=", ifIndex, ", serviceName=", serviceName, ", regType=", regType, ", domain=", domain)
+			testlog.Debug.Println("TEST BROWSE: ifIndex=", ifIndex, ", serviceName=", serviceName, ", regType=", regType, ", domain=", domain)
 			rrc <- serviceName
 			Resolve(ctx, 0, ifIndex, serviceName, regType, domain,
 				func(flags Flags, ifIndex int, fullName, hostName string, port uint16, txt []string) {
-					testlog("TEST RESOLVE: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostname=", hostName, ", port=", port)
+					testlog.Debug.Println("TEST RESOLVE: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostname=", hostName, ", port=", port)
 					rrc <- fmt.Sprint(serviceName, ":", hostName, ":", port, ":", txt)
 					Query(ctx, 0, ifIndex, &dns.Question{Name: hostName, Qtype: dns.TypeA, Qclass: dns.ClassINET},
 						func(flags Flags, ifIndex int, rr dns.RR) {
 							a := rr.(*dns.A)
-							testlog("TEST QUERY: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostName=", hostName, ":", port, ", A=", a.A)
+							testlog.Debug.Println("TEST QUERY: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostName=", hostName, ":", port, ", A=", a.A)
 							select {
 							case rrc <- fmt.Sprint("RESULT: serviceName=", serviceName, ", ifIndex=", ifIndex, ", hostName=", hostName, ":", port, ", A=", a.A):
 							default:
@@ -118,7 +118,7 @@ func TestBrowseAndResolveAndLookup(t *testing.T) {
 					Query(ctx, 0, ifIndex, &dns.Question{Name: hostName, Qtype: dns.TypeAAAA, Qclass: dns.ClassINET},
 						func(flags Flags, ifIndex int, rr dns.RR) {
 							a := rr.(*dns.AAAA)
-							testlog("TEST QUERY: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA)
+							testlog.Debug.Println("TEST QUERY: ifIndex=", ifIndex, ",serviceName=", serviceName, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA)
 							select {
 							case rrc <- fmt.Sprint("RESULT: serviceName=", serviceName, ", ifIndex=", ifIndex, ", hostName=", hostName, ":", port, ", AAAA=", a.AAAA):
 							default:
